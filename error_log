@@ -1,0 +1,6 @@
+[08-Jun-2026 23:56:39 Asia/Kolkata] PHP Fatal error:  Uncaught mysqli_sql_exception: Table 'sbisaccosco_zimamoto.system_notifications' doesn't exist in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/functions/notification_functions.php:38
+Stack trace:
+#0 /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/functions/notification_functions.php(38): mysqli->prepare()
+#1 /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/index.php(133): countUnreadNotifications()
+#2 {main}
+  thrown in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/functions/notification_functions.php on line 38
