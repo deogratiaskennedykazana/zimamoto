@@ -74,3 +74,20 @@ Stack trace:
 #0 /tmp/ai_php_rel8clg9s54mdsWVCuQ(17): mysqli_query(Object(mysqli), 'ALTER TABLE \\`u...')
 #1 {main}
   thrown in /tmp/ai_php_rel8clg9s54mdsWVCuQ on line 17
+[09-Jun-2026 15:41:21 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/index.php on line 133
+[09-Jun-2026 15:41:21 Asia/Kolkata] PHP Fatal error:  Uncaught TypeError: countUnreadNotifications(): Argument #2 ($userId) must be of type int, null given, called in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/index.php on line 133 and defined in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/functions/notification_functions.php:36
+Stack trace:
+#0 /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/index.php(133): countUnreadNotifications()
+#1 {main}
+  thrown in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/functions/notification_functions.php on line 36
+[09-Jun-2026 18:27:38 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/index.php on line 133
+[09-Jun-2026 18:27:38 Asia/Kolkata] PHP Fatal error:  Uncaught TypeError: countUnreadNotifications(): Argument #2 ($userId) must be of type int, null given, called in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/index.php on line 133 and defined in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/functions/notification_functions.php:36
+Stack trace:
+#0 /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/index.php(133): countUnreadNotifications()
+#1 {main}
+  thrown in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/functions/notification_functions.php on line 36
+[09-Jun-2026 19:10:34 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Access denied for user 'tellicerpsysco_zimamoto'@'localhost' (using password: YES) in Command line code:2
+Stack trace:
+#0 Command line code(2): mysqli->__construct('localhost', 'tellicerpsysco_...', 'Tellice2022@', 'tellicerpsysco_...')
+#1 {main}
+  thrown in Command line code on line 2
