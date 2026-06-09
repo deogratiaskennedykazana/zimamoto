@@ -53,4 +53,22 @@ function stmt_fetch_all($stmt) {
           function closeConn(mysqli $conn){
                $conn->close();  
           }
+
+// ========== EMAIL / SMTP CONFIGURATION ==========
+define('SMTP_HOST', 'smtp.gmail.com');        // Change to your SMTP server
+define('SMTP_PORT', 587);                      // 587 for TLS, 465 for SSL
+define('SMTP_USERNAME', 'your-email@gmail.com'); // Change to your email
+define('SMTP_PASSWORD', 'your-app-password');   // Change to your app password
+define('SMTP_FROM_EMAIL', 'noreply@saccos.co.tz');
+define('SMTP_FROM_NAME', 'SACCOS System');
+
+// ========== SMS CONFIGURATION (Example with Africa's Talking) ==========
+define('SMS_PROVIDER', 'africastalking');      // or 'twilio', 'custom'
+define('SMS_API_KEY', 'your-api-key');
+define('SMS_USERNAME', 'sandbox');             // Africa's Talking username
+define('SMS_FROM', 'SACCOSS');
+
+// ========== APPLICATION URL ==========
+define('APP_URL', 'https://zimamoto.tellicerpsys.co.tz');
+define('APP_NAME', 'SACCOS System');
 ?>
