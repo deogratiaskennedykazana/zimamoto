@@ -4,3 +4,73 @@ Stack trace:
 #1 /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/index.php(133): countUnreadNotifications()
 #2 {main}
   thrown in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/functions/notification_functions.php on line 38
+[08-Jun-2026 18:38:33 UTC] PHP Parse error:  syntax error, unexpected token "=", expecting end of file in Command line code on line 1
+[08-Jun-2026 18:38:51 UTC] PHP Fatal error:  Uncaught Error: Call to undefined function countUnreadNotifications() in Command line code:9
+Stack trace:
+#0 {main}
+  thrown in Command line code on line 9
+[09-Jun-2026 00:24:42 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/index.php on line 133
+[09-Jun-2026 00:24:42 Asia/Kolkata] PHP Fatal error:  Uncaught TypeError: countUnreadNotifications(): Argument #2 ($userId) must be of type int, null given, called in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/index.php on line 133 and defined in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/functions/notification_functions.php:36
+Stack trace:
+#0 /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/index.php(133): countUnreadNotifications()
+#1 {main}
+  thrown in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/functions/notification_functions.php on line 36
+[09-Jun-2026 00:39:50 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/index.php on line 133
+[09-Jun-2026 00:39:50 Asia/Kolkata] PHP Fatal error:  Uncaught TypeError: countUnreadNotifications(): Argument #2 ($userId) must be of type int, null given, called in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/index.php on line 133 and defined in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/functions/notification_functions.php:36
+Stack trace:
+#0 /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/index.php(133): countUnreadNotifications()
+#1 {main}
+  thrown in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/functions/notification_functions.php on line 36
+[09-Jun-2026 00:40:50 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/index.php on line 133
+[09-Jun-2026 00:40:50 Asia/Kolkata] PHP Fatal error:  Uncaught TypeError: countUnreadNotifications(): Argument #2 ($userId) must be of type int, null given, called in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/index.php on line 133 and defined in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/functions/notification_functions.php:36
+Stack trace:
+#0 /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/index.php(133): countUnreadNotifications()
+#1 {main}
+  thrown in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/functions/notification_functions.php on line 36
+[09-Jun-2026 00:47:34 Asia/Kolkata] PHP Fatal error:  Uncaught mysqli_sql_exception: Table 'sbisaccosco_zimamoto.currencies' doesn't exist in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/voucher/receipt_voucher.php:51
+Stack trace:
+#0 /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/voucher/receipt_voucher.php(51): mysqli->query()
+#1 /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/index.php(1260): include('/home/tellicerp...')
+#2 {main}
+  thrown in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/voucher/receipt_voucher.php on line 51
+[09-Jun-2026 14:00:48 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/index.php on line 133
+[09-Jun-2026 14:00:48 Asia/Kolkata] PHP Fatal error:  Uncaught TypeError: countUnreadNotifications(): Argument #2 ($userId) must be of type int, null given, called in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/index.php on line 133 and defined in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/functions/notification_functions.php:36
+Stack trace:
+#0 /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/index.php(133): countUnreadNotifications()
+#1 {main}
+  thrown in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/functions/notification_functions.php on line 36
+[09-Jun-2026 09:35:12 UTC] PHP Fatal error:  Uncaught Error: Call to undefined function ini_set() in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/configs.php:4
+Stack trace:
+#0 /tmp/ai_php_0tr3pg2m9qir4P4jJaR(4): require_once()
+#1 {main}
+  thrown in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/configs.php on line 4
+[09-Jun-2026 09:35:30 UTC] PHP Fatal error:  Uncaught Error: Call to undefined function ini_set() in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/configs.php:4
+Stack trace:
+#0 /tmp/ai_php_fnfq1tudq51u9qhEUMB(4): require_once()
+#1 {main}
+  thrown in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/configs.php on line 4
+[09-Jun-2026 09:35:51 UTC] PHP Fatal error:  Uncaught Error: Call to undefined function ini_set() in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/configs.php:4
+Stack trace:
+#0 /tmp/ai_php_54en044a3u3n3x3Krwg(4): require_once()
+#1 {main}
+  thrown in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/configs.php on line 4
+[09-Jun-2026 09:36:36 UTC] PHP Fatal error:  Uncaught Error: Call to undefined function ini_set() in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/configs.php:4
+Stack trace:
+#0 /tmp/ai_php_aadkiu59gk79eoPXzr0(4): require_once()
+#1 {main}
+  thrown in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/configs.php on line 4
+[09-Jun-2026 09:37:50 UTC] PHP Fatal error:  Uncaught Error: Call to undefined function ini_set() in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/configs.php:4
+Stack trace:
+#0 /tmp/ai_php_9k4pnjh45orvfkVX5gp(4): require_once()
+#1 {main}
+  thrown in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/configs.php on line 4
+[09-Jun-2026 09:38:12 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '\`users\` ADD COLUMN \`totp_secret\` VARCHAR(32) NULL AFTER \`password\`' at line 1 in /tmp/ai_php_4m66t2o2p72g0BcrzxJ:17
+Stack trace:
+#0 /tmp/ai_php_4m66t2o2p72g0BcrzxJ(17): mysqli_query(Object(mysqli), 'ALTER TABLE \\`u...')
+#1 {main}
+  thrown in /tmp/ai_php_4m66t2o2p72g0BcrzxJ on line 17
+[09-Jun-2026 09:38:54 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '\`users\` ADD COLUMN \`totp_secret\` VARCHAR(32) NULL AFTER \`password\`' at line 1 in /tmp/ai_php_rel8clg9s54mdsWVCuQ:17
+Stack trace:
+#0 /tmp/ai_php_rel8clg9s54mdsWVCuQ(17): mysqli_query(Object(mysqli), 'ALTER TABLE \\`u...')
+#1 {main}
+  thrown in /tmp/ai_php_rel8clg9s54mdsWVCuQ on line 17
