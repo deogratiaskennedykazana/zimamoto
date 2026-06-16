@@ -76,6 +76,8 @@
         require_once "./functions/meeting_functions.php";
         require_once "./functions/role_functions.php";
         require_once "./functions/grantor_functions.php";
+        require_once "./functions/audit_functions.php";
+        require_once "./functions/totp_functions.php";
         $conn = openConn();
         include './toast_notification.php';
       
@@ -129,9 +131,11 @@
       <li class="nav-item">
         <a class="nav-link" href="./?page=notifications">
           <i class="far fa-bell"></i>
+          <?php if (!empty($_SESSION['userid'])): ?>
           <span class="badge badge-warning navbar-badge">
-            <?= countUnreadNotifications($conn, $_SESSION['userid']) + countPendingGrantorRequests($conn, $_SESSION['userid']) ?>
+            <?= countUnreadNotifications($conn, (int)$_SESSION['userid']) + countPendingGrantorRequests($conn, (int)$_SESSION['userid']) ?>
           </span>
+          <?php endif; ?>
         </a>
       </li>
 
@@ -1450,9 +1454,33 @@ case"process_general_loan_repayment_upload":
             case"notifications":
                 include("./views/notifications/notifications.php");
                 break;
+            case"notification_settings":
+                include("./views/notifications/notification_settings.php");
+                break;
             case"mark_notifications_read":
-                markAllNotificationsRead($conn, $_SESSION['userid']);
+                markAllNotificationsRead($conn, (int)$_SESSION['userid']);
                 echo "<script>window.location.href='./?page=notifications';</script>";
+                break;
+
+            // ── ADMIN NOTIFICATION TEST PANEL ──────────────────────────
+            case "test_notifications":
+                // Guard: only admins/super-admins should reach this
+                $allowedRoles = ['admin', 'superadmin', 'super admin'];
+                if (!in_array(strtolower($_SESSION['role'] ?? ''), $allowedRoles)) {
+                    echo '<div class="alert alert-danger m-3"><i class="fas fa-lock mr-1"></i>Access denied. This page is for administrators only.</div>';
+                    break;
+                }
+                include("./views/notifications/test_notifications.php");
+                break;
+
+            // Audit Trail
+            case"audit_trail":
+                include("./views/roles/audit_trail.php");
+                break;
+
+            // MFA Setup
+            case"mfa_setup":
+                include("./views/roles/mfa_setup.php");
                 break;
             // ===== END NEW FEATURE ROUTES =====
 

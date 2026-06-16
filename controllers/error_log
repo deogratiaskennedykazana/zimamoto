@@ -2648,3 +2648,33 @@ Stack trace:
   thrown in /home/sbisaccosco/zimamoto.sbisaccos.co.tz/controllers/member_controllers.php on line 36
 [19-May-2026 14:00:45 Asia/Kolkata] PHP Warning:  Undefined array key "branch_id" in /home/sbisaccosco/zimamoto.sbisaccos.co.tz/controllers/member_controllers.php on line 202
 [06-Jun-2026 23:26:04 Asia/Kolkata] PHP Warning:  Undefined array key "branch_id" in /home/sbisaccosco/zimamoto.sbisaccos.co.tz/controllers/member_controllers.php on line 202
+[11-Jun-2026 17:16:46 Asia/Kolkata] PHP Fatal error:  Uncaught ArgumentCountError: The number of elements in the type definition string must match the number of bind variables in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/functions/role_functions.php:54
+Stack trace:
+#0 /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/functions/role_functions.php(54): mysqli_stmt->bind_param()
+#1 /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/controllers/role_controller.php(58): setRolePermissions()
+#2 {main}
+  thrown in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/functions/role_functions.php on line 54
+[12-Jun-2026 13:12:49 Asia/Kolkata] PHP Fatal error:  Uncaught ArgumentCountError: The number of elements in the type definition string must match the number of bind variables in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/functions/role_functions.php:54
+Stack trace:
+#0 /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/functions/role_functions.php(54): mysqli_stmt->bind_param()
+#1 /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/controllers/role_controller.php(58): setRolePermissions()
+#2 {main}
+  thrown in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/functions/role_functions.php on line 54
+[12-Jun-2026 13:13:08 Asia/Kolkata] PHP Fatal error:  Uncaught ArgumentCountError: The number of elements in the type definition string must match the number of bind variables in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/functions/role_functions.php:54
+Stack trace:
+#0 /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/functions/role_functions.php(54): mysqli_stmt->bind_param()
+#1 /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/controllers/role_controller.php(58): setRolePermissions()
+#2 {main}
+  thrown in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/functions/role_functions.php on line 54
+[12-Jun-2026 13:19:20 Asia/Kolkata] PHP Fatal error:  Uncaught ArgumentCountError: The number of elements in the type definition string must match the number of bind variables in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/functions/role_functions.php:54
+Stack trace:
+#0 /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/functions/role_functions.php(54): mysqli_stmt->bind_param()
+#1 /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/controllers/role_controller.php(58): setRolePermissions()
+#2 {main}
+  thrown in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/functions/role_functions.php on line 54
+[12-Jun-2026 13:22:58 Asia/Kolkata] PHP Fatal error:  Uncaught ArgumentCountError: The number of elements in the type definition string must match the number of bind variables in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/functions/role_functions.php:54
+Stack trace:
+#0 /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/functions/role_functions.php(54): mysqli_stmt->bind_param()
+#1 /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/controllers/role_controller.php(58): setRolePermissions()
+#2 {main}
+  thrown in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/functions/role_functions.php on line 54

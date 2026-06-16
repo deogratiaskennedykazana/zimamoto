@@ -85,11 +85,4 @@ function selectGrantorNotificationsByLoanId(mysqli $conn, int $loanId) {
     return stmt_fetch_all($stmt);
 }
 
-function countPendingGrantorRequests(mysqli $conn, int $userId) {
-    $sql = "SELECT COUNT(*) AS cnt FROM grantor_notifications WHERE grantor_id = ? AND status = 'pending' AND expires_at > NOW()";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("i", $userId);
-    $stmt->execute();
-    $row = stmt_fetch_assoc($stmt);
-    return $row['cnt'] ?? 0;
-}
+// NOTE: countPendingGrantorRequests() is defined in notification_functions.php — do NOT redeclare here.

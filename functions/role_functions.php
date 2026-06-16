@@ -36,6 +36,27 @@ function softDeleteRole(mysqli $conn, int $id) {
     return $stmt->execute();
 }
 
+// function setRolePermissions(mysqli $conn, int $roleId, array $modules) {
+//     $sql = "DELETE FROM role_permissions WHERE role_id = ?";
+//     $stmt = $conn->prepare($sql);
+//     $stmt->bind_param("i", $roleId);
+//     $stmt->execute();
+//     $stmt->close();
+
+//     $sql = "INSERT INTO role_permissions (role_id, module, can_view, can_create, can_edit, can_delete, can_approve) VALUES (?, ?, ?, ?, ?, ?, ?)";
+//     $stmt = $conn->prepare($sql);
+//     foreach ($modules as $module => $perms) {
+//         $view = $perms['can_view'] ?? 0;
+//         $create = $perms['can_create'] ?? 0;
+//         $edit = $perms['can_edit'] ?? 0;
+//         $delete = $perms['can_delete'] ?? 0;
+//         $approve = $perms['can_approve'] ?? 0;
+//         $stmt->bind_param("isiiii", $roleId, $module, $view, $create, $edit, $delete, $approve);
+//         $stmt->execute();
+//     }
+//     return true;
+// }
+
 function setRolePermissions(mysqli $conn, int $roleId, array $modules) {
     $sql = "DELETE FROM role_permissions WHERE role_id = ?";
     $stmt = $conn->prepare($sql);
@@ -51,7 +72,7 @@ function setRolePermissions(mysqli $conn, int $roleId, array $modules) {
         $edit = $perms['can_edit'] ?? 0;
         $delete = $perms['can_delete'] ?? 0;
         $approve = $perms['can_approve'] ?? 0;
-        $stmt->bind_param("isiiii", $roleId, $module, $view, $create, $edit, $delete, $approve);
+        $stmt->bind_param("isiiiii", $roleId, $module, $view, $create, $edit, $delete, $approve);
         $stmt->execute();
     }
     return true;

@@ -47,14 +47,22 @@
                                                                 <select name="currency" id="" class="form-control select2-form select2bs4-form" required onchange="selectCurrency(this.value)">
                                                                     <option value="">Select below</option>
                                                                     <?php
-                                                                        $sql3 = "SELECT * FROM `currencies`";
-                                                                        $result3 = $conn->query($sql3);
-                                                                        if($result3->num_rows>0):
-                                                                            while($rows3 = $result3->fetch_assoc()):
-                                                                                echo "<option value='".$rows3['id']."'>".$rows3['name']."</option>";
-
-                                                                            endwhile;
-                                                                        endif;
+                                                                        // Check if currencies table exists before querying
+                                                                        $tableCheck = $conn->query("SHOW TABLES LIKE 'currencies'");
+                                                                        if ($tableCheck && $tableCheck->num_rows > 0) {
+                                                                            $sql3 = "SELECT * FROM `currencies`";
+                                                                            $result3 = $conn->query($sql3);
+                                                                            if ($result3 && $result3->num_rows > 0):
+                                                                                while ($rows3 = $result3->fetch_assoc()):
+                                                                                    echo "<option value='" . $rows3['id'] . "'>" . htmlspecialchars($rows3['name']) . "</option>";
+                                                                                endwhile;
+                                                                            endif;
+                                                                        } else {
+                                                                            // Default fallback currencies when table doesn't exist
+                                                                            echo "<option value='1'>TZS - Tanzanian Shilling</option>";
+                                                                            echo "<option value='2'>USD - US Dollar</option>";
+                                                                            echo "<option value='3'>EUR - Euro</option>";
+                                                                        }
                                                                     ?>
                                                                 </select>
                                                             </div>
