@@ -192,9 +192,15 @@
              </ul>
            </li>
 
+<<<<<<< HEAD
            <!-- ACCOUNT SECURITY — Google Authenticator 2FA is admin-only; hidden from members -->
            <li class="nav-header <?= (($_SESSION['role'] ?? '') === 'member') ? ' d-none' : '' ?>">Account Security</li>
            <li class="nav-item <?= (($_SESSION['role'] ?? '') === 'member') ? ' d-none' : '' ?>">
+=======
+           <!-- ACCOUNT SECURITY — visible to all users -->
+           <li class="nav-header">Account Security</li>
+           <li class="nav-item">
+>>>>>>> parent of b3f01dc (ofcoz)
              <a href="./?page=mfa_setup" class="nav-link"><i class="nav-icon fas fa-shield-alt"></i><p>Two-Factor Auth (2FA)</p></a>
            </li>
 
