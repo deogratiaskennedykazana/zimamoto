@@ -3,6 +3,7 @@
     require_once "./configs.php";
     require_once "./functions/user_function.php";
     require_once "./functions/totp_functions.php";
+    require_once "./functions/sms_functions.php";
     $conn = openConn();
 
     $error = null;
@@ -30,17 +31,33 @@
                     $_SESSION['userid'] = $user['id'];
                     $_SESSION['userlevel'] = $user['level'];
                     $_SESSION['branchid'] = $user['branch_id'];
-                    recordUserLogin($conn, $data);
 
-                    // Check if MFA/TOTP is enabled
+                    // Check if MFA/TOTP or SMS MFA is enabled
                     if (!empty($user['totp_enabled']) && $user['totp_enabled'] == 1) {
-                        // Store secret temporarily and redirect to MFA page
                         $_SESSION['totp_secret'] = $user['totp_secret'];
+                        $_SESSION['mfa_type'] = 'totp';
                         requireMFAVerification();
                         $redirectScript = "<script>window.location.href = './mfa_verify.php';</script>";
+                        $data['status'] = 'success';
+                        recordUserLogin($conn, $data);
+                    } elseif (!empty($user['sms_mfa_enabled']) && $user['sms_mfa_enabled'] == 1) {
+                        $smsResult = sendMfaOTP($conn, $user['id'], $user['phone']);
+                        if ($smsResult === true) {
+                            $_SESSION['mfa_type'] = 'sms';
+                            requireMFAVerification();
+                            $redirectScript = "<script>window.location.href = './mfa_verify.php';</script>";
+                            $data['status'] = 'success';
+                            recordUserLogin($conn, $data);
+                        } else {
+                            $data['status'] = 'failed';
+                            $data['failure_reason'] = 'sms_send_failed';
+                            recordUserLogin($conn, $data);
+                            $error = 'Unable to send SMS verification code. Please try again later.';
+                        }
                     } else {
-                        // Normal login without MFA
                         $_SESSION['mfa_verified'] = true;
+                        $data['status'] = 'success';
+                        recordUserLogin($conn, $data);
                         $redirectScript = "<script>window.location.href = './';</script>";
                     }
                 } elseif($user['status'] === 'pending'){

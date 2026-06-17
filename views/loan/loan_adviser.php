@@ -2,20 +2,20 @@
     <div class="card-header"><h4 class="card-title">Loan Advisor - Get Best Loan Suggestions</h4></div>
     <div class="card-body">
         <form method="post" class="was-validated">
+            <?php
+                // Auto-resolve the logged-in member — no manual selection allowed
+                $loggedInUserId   = (int) ($_SESSION['userid'] ?? 0);
+                $loggedInUserName = htmlspecialchars($_SESSION['name'] ?? 'You');
+            ?>
+            <!-- Hidden: always use the logged-in user's own ID -->
+            <input type="hidden" name="user_id" value="<?= $loggedInUserId ?>">
+
             <div class="row">
                 <div class="col-md-4">
                     <div class="form-group">
-                        <label>Select Member</label>
-                        <select name="user_id" class="form-control select2-form select2bs4-form" required>
-                            <option value="">Select Member</option>
-                            <?php
-                            $users = selectAllUsers($conn);
-                            if($users && is_array($users)):
-                                foreach($users as $u):
-                            ?>
-                                <option value="<?= $u['id'] ?>" <?= isset($_POST['user_id']) && $_POST['user_id'] == $u['id'] ? 'selected' : '' ?>><?= $u['name'] ?> (<?= $u['branch_name'] ?? 'N/A' ?>)</option>
-                            <?php endforeach; endif; ?>
-                        </select>
+                        <label>Member</label>
+                        <input type="text" class="form-control bg-light" value="<?= $loggedInUserName ?>" disabled>
+                        <small class="text-muted"><i class="fas fa-user-check text-success"></i> Showing your own loan eligibility.</small>
                     </div>
                 </div>
                 <div class="col-md-3">
@@ -50,7 +50,8 @@
         </form>
 
         <?php if(isset($_POST['get_advice'])):
-            $userId = (int) $_POST['user_id'];
+            // Always use the session user — ignore any tampered POST value
+            $userId = (int) ($_SESSION['userid'] ?? 0);
             $amount = (float) $_POST['amount'];
             $loanTypeId = (int) $_POST['loan_type'];
             $period = (int) $_POST['period'];

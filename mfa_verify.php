@@ -7,6 +7,7 @@ if (!isset($_SESSION['mfa_required']) || $_SESSION['mfa_required'] !== true) {
 
 require_once "./configs.php";
 require_once "./functions/totp_functions.php";
+require_once "./functions/sms_functions.php";
 $conn = openConn();
 
 $error = '';
@@ -15,24 +16,34 @@ $success = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['verify_code'])) {
         $code = preg_replace('/[^0-9]/', '', $_POST['totp_code']);
-        
-        if (verifyTOTP($_SESSION['totp_secret'], $code)) {
-            completeMFAVerification();
-            // Remove used secret from session
-            unset($_SESSION['totp_secret']);
-            echo "<script>window.location.href='./';</script>";
-            exit;
-        } else {
-            // Try recovery code
-            if (isset($_POST['use_recovery']) && $_POST['use_recovery'] == '1') {
-                if (verifyRecoveryCode($conn, $_SESSION['userid'], $code)) {
-                    completeMFAVerification();
-                    unset($_SESSION['totp_secret']);
-                    echo "<script>window.location.href='./';</script>";
-                    exit;
-                }
+        $userId = (int) ($_SESSION['userid'] ?? 0);
+        $mfaType = $_SESSION['mfa_type'] ?? 'totp';
+
+        if ($mfaType === 'sms') {
+            if ($userId && verifySmsOTP($conn, $userId, $code)) {
+                completeMFAVerification();
+                echo "<script>window.location.href='./';</script>";
+                exit;
             }
-            $error = 'Invalid verification code. Please try again.';
+            $error = 'Invalid or expired SMS code. Please try again.';
+        } else {
+            if (verifyTOTP($_SESSION['totp_secret'], $code)) {
+                completeMFAVerification();
+                unset($_SESSION['totp_secret']);
+                echo "<script>window.location.href='./';</script>";
+                exit;
+            } else {
+                // Try recovery code
+                if (isset($_POST['use_recovery']) && $_POST['use_recovery'] == '1') {
+                    if (verifyRecoveryCode($conn, $_SESSION['userid'], $code)) {
+                        completeMFAVerification();
+                        unset($_SESSION['totp_secret']);
+                        echo "<script>window.location.href='./';</script>";
+                        exit;
+                    }
+                }
+                $error = 'Invalid verification code. Please try again.';
+            }
         }
     }
 }
@@ -69,7 +80,11 @@ $conn->close();
         <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
       <?php endif; ?>
       
+      <?php if (isset($_SESSION['mfa_type']) && $_SESSION['mfa_type'] === 'sms'): ?>
+      <p class="text-muted">A 6-digit SMS code was sent to your phone. Enter it below to complete login.</p>
+      <?php else: ?>
       <p class="text-muted">Please enter the 6-digit code from your authenticator app.</p>
+      <?php endif; ?>
       
       <form action="" method="post">
         <div class="input-group mb-3">

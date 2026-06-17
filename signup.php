@@ -15,9 +15,11 @@ require_once "./functions/user_function.php";
 require_once "./functions/member_functions.php";
 require_once "./functions/min_sub_functions.php";
 require_once "./functions/branch_functions.php";
+require_once "./functions/sms_functions.php";
 
 $conn = openConn();
 
+// ── Step 1: Registration form submission ──────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['signup'])) {
 
     $name       = htmlspecialchars(trim($_POST['name'] ?? ''));
@@ -31,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['signup'])) {
     $gender     = $conn->real_escape_string($_POST['gender'] ?? '');
     $birthdate  = $conn->real_escape_string($_POST['birthdate'] ?? '');
 
-    // ── Validation ───────────────────────────────────────────
+    // Validation
     if (!$name || !$email || !$phone || !$password || !$branch_id) {
         $error = 'Please fill in all required fields.';
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -41,7 +43,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['signup'])) {
     } elseif ($password !== $confirm) {
         $error = 'Passwords do not match.';
     } else {
-        // Check if email already taken
         $chk = $conn->prepare("SELECT id FROM users WHERE email = ? LIMIT 1");
         $chk->bind_param("s", $email);
         $chk->execute();
@@ -55,27 +56,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['signup'])) {
     if (!$error) {
         $hashed = password_hash($password, PASSWORD_DEFAULT);
 
-        // Insert user with status = 'pending' so admin must approve
         $newUserId = registerUser(
             $conn, $name, $email, 'member', 'member',
             $hashed, 'branch', $branch_id, $phone, 'pending'
         );
 
         if (is_numeric($newUserId) && $newUserId > 0) {
-            // Create the members row (minimal — admin fills details later if needed)
-            $reg_no    = 'PENDING-' . $newUserId;
-            $district_id = 1; // default; admin can update on approval
+            $reg_no      = 'PENDING-' . $newUserId;
+            $district_id = 1;
             registerMember(
                 $conn, $newUserId, $phone, $address,
                 $reg_no, $birthdate ?: '1990-01-01',
                 $district_id, $branch_id, $gender ?: 'other', $nida, ''
             );
 
-            // Notify all admins
+            // Notify admins
             $admins = selectUsersByRole($conn, 'admin');
             if ($admins && is_array($admins)) {
                 foreach ($admins as $admin) {
-                    $msg = "New member signup awaiting approval: $name ($email). Review in Pending Approvals.";
+                    $msg  = "New member signup awaiting approval: $name ($email). Review in Pending Approvals.";
                     $link = './?page=pending_approvals';
                     $conn->query("INSERT INTO system_notifications
                         (user_id, type, title, message, link, is_read, created_at)
@@ -83,11 +82,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['signup'])) {
                 }
             }
 
-            $success = true;
+            // Store for MFA opt-in step
+            $_SESSION['signup_pending_mfa'] = [
+                'user_id' => $newUserId,
+                'name'    => $name,
+                'phone'   => $phone,
+            ];
+            $success = 'registered';
         } else {
             $error = 'Registration failed — the email may already be in use. Please try again.';
         }
     }
+}
+
+// ── Step 2a: User chose to enable SMS MFA — send OTP ─────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['setup_mfa'])) {
+    $pending = $_SESSION['signup_pending_mfa'] ?? null;
+    if ($pending) {
+        $userId = (int) $pending['user_id'];
+        $phone  = $pending['phone'];
+        $result = sendMfaOTP($conn, $userId, $phone);
+        if ($result === true) {
+            $_SESSION['signup_mfa_verify'] = $userId;
+            $success = 'otp_sent';
+        } else {
+            $error   = 'Could not send SMS: ' . $result . ' — you can enable MFA later from your profile.';
+            $success = 'registered';
+        }
+    }
+}
+
+// ── Step 2b: User submitted OTP to confirm their phone ───────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['verify_mfa_otp'])) {
+    $userId = (int) ($_SESSION['signup_mfa_verify'] ?? 0);
+    $otp    = preg_replace('/[^0-9]/', '', $_POST['otp_code'] ?? '');
+    if ($userId && verifySmsOTP($conn, $userId, $otp)) {
+        enableSmsMFA($conn, $userId);
+        unset($_SESSION['signup_pending_mfa'], $_SESSION['signup_mfa_verify']);
+        $success = 'mfa_enabled';
+    } else {
+        $error   = 'Invalid or expired code. Please try again.';
+        $success = 'otp_sent';
+    }
+}
+
+// ── Step 2c: User chose to skip MFA ──────────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['skip_mfa'])) {
+    unset($_SESSION['signup_pending_mfa'], $_SESSION['signup_mfa_verify']);
+    $success = 'done';
 }
 ?>
 <!DOCTYPE html>
@@ -103,6 +145,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['signup'])) {
     body { background: #f4f6f9; }
     .signup-box { max-width: 520px; margin: 60px auto; }
     .brand-text { font-size: 1.4rem; font-weight: 600; color: #343a40; }
+    .otp-input { font-size: 28px; letter-spacing: 10px; text-align: center; }
   </style>
 </head>
 <body class="hold-transition">
@@ -112,19 +155,110 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['signup'])) {
     <span class="brand-text"><i class="fas fa-university mr-2 text-primary"></i>SBI SACCOS — Member Registration</span>
   </div>
 
-  <?php if ($success): ?>
+  <?php if (in_array($success, ['registered','otp_sent','mfa_enabled','done'])): ?>
+
+    <?php if ($success === 'registered'): ?>
+    <!-- ── Card: Registration done → ask about SMS MFA ── -->
     <div class="card card-success">
-      <div class="card-header"><h4 class="card-title">Application Submitted</h4></div>
+      <div class="card-header"><h4 class="card-title"><i class="fas fa-check-circle mr-2"></i>Application Submitted</h4></div>
       <div class="card-body">
-        <p class="mb-1"><i class="fas fa-check-circle text-success mr-2"></i>
-          Your registration has been submitted and is <strong>pending approval</strong> by an administrator.</p>
-        <p class="text-muted">You will be able to log in once your account is approved. Please check back later.</p>
+        <p class="mb-2">Your registration has been submitted and is <strong>pending approval</strong> by an administrator.</p>
+        <hr>
+        <h5 class="mb-1"><i class="fas fa-mobile-alt mr-2 text-primary"></i>Secure Your Account with SMS Verification</h5>
+        <p class="text-muted">Enable two-factor authentication so a one-time code is sent to your phone
+          <strong><?= htmlspecialchars($_SESSION['signup_pending_mfa']['phone'] ?? '') ?></strong>
+          each time you log in. This keeps your account safe even if your password is compromised.</p>
+
+        <?php if ($error): ?>
+          <div class="alert alert-danger"><i class="fas fa-exclamation-circle mr-1"></i> <?= htmlspecialchars($error) ?></div>
+        <?php endif; ?>
+
+        <div class="row mt-3">
+          <div class="col-7">
+            <form method="post">
+              <button type="submit" name="setup_mfa" class="btn btn-primary btn-block">
+                <i class="fas fa-shield-alt mr-1"></i> Yes, enable SMS 2FA
+              </button>
+            </form>
+          </div>
+          <div class="col-5">
+            <form method="post">
+              <button type="submit" name="skip_mfa" class="btn btn-outline-secondary btn-block">
+                <i class="fas fa-forward mr-1"></i> Skip for now
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <?php elseif ($success === 'otp_sent'): ?>
+    <!-- ── Card: OTP sent → verify phone ── -->
+    <div class="card card-primary">
+      <div class="card-header"><h4 class="card-title"><i class="fas fa-sms mr-2"></i>Verify Your Phone Number</h4></div>
+      <div class="card-body">
+        <p>A 6-digit code has been sent to
+          <strong><?= htmlspecialchars($_SESSION['signup_pending_mfa']['phone'] ?? '') ?></strong>.
+          Enter it below to confirm and activate SMS 2FA.</p>
+
+        <?php if ($error): ?>
+          <div class="alert alert-danger"><i class="fas fa-exclamation-circle mr-1"></i> <?= htmlspecialchars($error) ?></div>
+        <?php endif; ?>
+
+        <form method="post">
+          <div class="form-group">
+            <label>Verification Code</label>
+            <input type="text" name="otp_code" class="form-control otp-input"
+                   placeholder="000000" maxlength="6" pattern="[0-9]{6}"
+                   inputmode="numeric" autocomplete="one-time-code" autofocus required>
+            <small class="text-muted">Code expires in 10 minutes.</small>
+          </div>
+          <button type="submit" name="verify_mfa_otp" class="btn btn-primary btn-block">
+            <i class="fas fa-check mr-1"></i> Verify &amp; Enable 2FA
+          </button>
+        </form>
+
+        <div class="text-center mt-3">
+          <form method="post" style="display:inline;">
+            <button type="submit" name="skip_mfa" class="btn btn-link btn-sm text-muted">
+              Skip and continue without 2FA
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <?php elseif ($success === 'mfa_enabled'): ?>
+    <!-- ── Card: MFA enabled ── -->
+    <div class="card card-success">
+      <div class="card-header"><h4 class="card-title"><i class="fas fa-shield-alt mr-2"></i>SMS 2FA Enabled</h4></div>
+      <div class="card-body">
+        <p><i class="fas fa-check-circle text-success mr-2"></i>
+          Phone verification is now active on your account. You will be asked for a code each time you log in.</p>
+        <p class="text-muted">Your account is still <strong>pending admin approval</strong>. You will be able to log in once it is approved.</p>
       </div>
       <div class="card-footer">
         <a href="./login.php" class="btn btn-success btn-block">Back to Login</a>
       </div>
     </div>
+
+    <?php else: ?>
+    <!-- ── Card: Skipped MFA ── -->
+    <div class="card card-success">
+      <div class="card-header"><h4 class="card-title">Application Submitted</h4></div>
+      <div class="card-body">
+        <p class="mb-1"><i class="fas fa-check-circle text-success mr-2"></i>
+          Your registration has been submitted and is <strong>pending approval</strong> by an administrator.</p>
+        <p class="text-muted">You can enable SMS 2FA anytime from your profile after logging in.</p>
+      </div>
+      <div class="card-footer">
+        <a href="./login.php" class="btn btn-success btn-block">Back to Login</a>
+      </div>
+    </div>
+    <?php endif; ?>
+
   <?php else: ?>
+    <!-- ── Registration Form ── -->
     <div class="card card-primary">
       <div class="card-header"><h4 class="card-title">Create Member Account</h4></div>
 
@@ -152,6 +286,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['signup'])) {
           <div class="form-group">
             <label>Phone Number <span class="text-danger">*</span></label>
             <input type="text" name="phone" class="form-control" required
+                   placeholder="e.g. 0712345678"
                    value="<?= htmlspecialchars($_POST['phone'] ?? '') ?>">
           </div>
 
