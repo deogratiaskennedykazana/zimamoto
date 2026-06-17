@@ -25,20 +25,20 @@ $defaultCfg = ['icon' => 'fa-bell', 'color' => 'text-info'];
 ?>
 
 <div class="card card-primary card-outline">
-    <div class="card-header d-flex align-items-center">
-        <h4 class="card-title mr-auto">
+    <div class="card-header d-flex flex-wrap align-items-center justify-content-between">
+        <h4 class="card-title mb-2 mb-sm-0">
             <i class="fas fa-bell mr-2"></i>Notifications
             <?php if ($unreadCount > 0): ?>
                 <span class="badge badge-danger ml-1"><?= $unreadCount ?> new</span>
             <?php endif; ?>
         </h4>
-        <div>
+        <div class="d-flex flex-wrap align-items-center">
             <?php if ($unreadCount > 0): ?>
-            <a href="./?page=mark_notifications_read" class="btn btn-sm btn-outline-secondary mr-1">
+            <a href="./?page=mark_notifications_read" class="btn btn-sm btn-outline-secondary mr-1 mb-1 mb-sm-0">
                 <i class="fas fa-check-double mr-1"></i>Mark all read
             </a>
             <?php endif; ?>
-            <a href="./?page=notification_settings" class="btn btn-sm btn-outline-primary">
+            <a href="./?page=notification_settings" class="btn btn-sm btn-outline-primary mb-1 mb-sm-0">
                 <i class="fas fa-sliders-h mr-1"></i>Settings
             </a>
         </div>
@@ -61,14 +61,14 @@ $defaultCfg = ['icon' => 'fa-bell', 'color' => 'text-info'];
                 $ago    = humanTimeAgo(strtotime($notif['created_at']));
             ?>
             <li class="list-group-item list-group-item-action px-4 py-3 <?= $unread ? 'font-weight-bold' : '' ?>" <?= $bg ?>>
-                <div class="d-flex align-items-start">
+                <div class="d-flex align-items-start flex-wrap">
                     <!-- Icon -->
                     <div class="mr-3 mt-1" style="min-width:28px;text-align:center;">
                         <i class="fas <?= $cfg['icon'] ?> fa-lg <?= $cfg['color'] ?>"></i>
                     </div>
 
                     <!-- Content -->
-                    <div class="flex-grow-1">
+                    <div class="flex-grow-1 minw-0">
                         <div class="d-flex justify-content-between">
                             <span class="<?= $unread ? '' : 'text-muted' ?>" style="font-size:14px;">
                                 <?= htmlspecialchars($notif['title'] ?? 'Notification') ?>
@@ -78,7 +78,7 @@ $defaultCfg = ['icon' => 'fa-bell', 'color' => 'text-info'];
                             </span>
                             <small class="text-muted ml-3 text-nowrap" title="<?= $time ?>"><?= $ago ?></small>
                         </div>
-                        <p class="mb-0 mt-1 text-muted" style="font-size:13px;">
+                        <p class="mb-0 mt-1 text-muted" style="font-size:13px; word-break:break-word; white-space:normal;">
                             <?= htmlspecialchars($notif['message'] ?? '') ?>
                         </p>
                         <?php if (!empty($notif['link'])): ?>
@@ -90,7 +90,7 @@ $defaultCfg = ['icon' => 'fa-bell', 'color' => 'text-info'];
 
                     <!-- Mark read button -->
                     <?php if ($unread): ?>
-                    <div class="ml-2">
+                    <div class="ml-2 mt-2 mt-sm-0">
                         <a href="./?action=mark_notif_read&id=<?= $notif['id'] ?>&redirect=notifications"
                            class="btn btn-xs btn-light text-muted" title="Mark as read">
                             <i class="fas fa-check"></i>

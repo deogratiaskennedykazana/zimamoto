@@ -7,6 +7,21 @@
 
 $memberId = (int)$_SESSION['userid'];
 
+// ---- Member MFA status ----
+$totpEnabled = false;
+$smsMfaEnabled = false;
+$stmtMfa = $conn->prepare("SELECT totp_enabled, sms_mfa_enabled FROM users WHERE id = ? AND deleted_at IS NULL LIMIT 1");
+if ($stmtMfa) {
+    $stmtMfa->bind_param("i", $memberId);
+    $stmtMfa->execute();
+    $mfaRow = stmt_fetch_assoc($stmtMfa);
+    if ($mfaRow) {
+        $totpEnabled = !empty($mfaRow['totp_enabled']) && $mfaRow['totp_enabled'] == 1;
+        $smsMfaEnabled = !empty($mfaRow['sms_mfa_enabled']) && $mfaRow['sms_mfa_enabled'] == 1;
+    }
+    $stmtMfa->close();
+}
+
 // ---- Helper: member account balance ----
 function getMemberBalance(mysqli $conn, int $userId, string $category): float {
     $stmt = $conn->prepare(
@@ -161,10 +176,24 @@ if ($isAdmin) {
 
     <!-- ===== MEMBER PERSONAL SECTION ===== -->
     <div class="col-12">
-        <h5 class="mb-3">
-            <i class="fas fa-user-circle mr-2 text-primary"></i>
-            My Account Summary — <?= date('F Y') ?>
-        </h5>
+        <div class="d-flex flex-wrap align-items-center justify-content-between mb-3">
+            <div class="mb-2 mb-sm-0">
+                <h5 class="mb-0">
+                    <i class="fas fa-user-circle mr-2 text-primary"></i>
+                    My Account Summary — <?= date('F Y') ?>
+                </h5>
+            </div>
+            <div class="d-flex flex-wrap align-items-center">
+                <?php if ($totpEnabled || $smsMfaEnabled): ?>
+                    <span class="badge badge-success mb-2 mb-sm-0">MFA Enabled</span>
+                <?php else: ?>
+                    <span class="badge badge-warning mb-2 mb-sm-0">MFA Disabled</span>
+                <?php endif; ?>
+                <a href="./?page=mfa_setup" class="btn btn-sm btn-outline-secondary ml-0 ml-sm-2 mb-2 mb-sm-0">
+                    <i class="fas fa-shield-alt mr-1"></i> Manage 2FA
+                </a>
+            </div>
+        </div>
     </div>
 
     <!-- Balance Doughnut -->

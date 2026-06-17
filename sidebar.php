@@ -193,9 +193,8 @@
            </li>
 
 
-           <li class="nav-header <?= (($_SESSION['role'] ?? '') === 'member') ? ' d-none' : '' ?>">Account Security</li>
-           <li class="nav-item <?= (($_SESSION['role'] ?? '') === 'member') ? ' d-none' : '' ?>">
-
+           <li class="nav-header">Account Security</li>
+           <li class="nav-item">
              <a href="./?page=mfa_setup" class="nav-link"><i class="nav-icon fas fa-shield-alt"></i><p>Two-Factor Auth (2FA)</p></a>
            </li>
 
