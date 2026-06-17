@@ -9,14 +9,16 @@ if (isset($_SESSION['userid'])) {
 $error   = null;
 $success = null;
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['signup'])) {
-    require_once "./configs.php";
-    require_once "./functions/user_function.php";
-    require_once "./functions/member_functions.php";
-    require_once "./functions/min_sub_functions.php";
-    require_once "./functions/branch_functions.php";
+// Always open DB so the branch dropdown works on GET requests too
+require_once "./configs.php";
+require_once "./functions/user_function.php";
+require_once "./functions/member_functions.php";
+require_once "./functions/min_sub_functions.php";
+require_once "./functions/branch_functions.php";
 
-    $conn = openConn();
+$conn = openConn();
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['signup'])) {
 
     $name       = htmlspecialchars(trim($_POST['name'] ?? ''));
     $email      = $conn->real_escape_string(trim($_POST['email'] ?? ''));
@@ -158,14 +160,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['signup'])) {
             <select name="branch_id" class="form-control" required>
               <option value="">— Select Branch —</option>
               <?php
-                if (isset($conn)) {
-                    require_once "./functions/branch_functions.php";
-                    $branches = selectAllBranches($conn);
-                    if ($branches && is_array($branches)) {
-                        foreach ($branches as $b) {
-                            $sel = (isset($_POST['branch_id']) && $_POST['branch_id'] == $b['id']) ? 'selected' : '';
-                            echo "<option value='{$b['id']}' $sel>{$b['name']}</option>";
-                        }
+                $branches = selectAllBranches($conn);
+                if ($branches && is_array($branches)) {
+                    foreach ($branches as $b) {
+                        $sel = (isset($_POST['branch_id']) && $_POST['branch_id'] == $b['id']) ? 'selected' : '';
+                        echo "<option value='{$b['id']}' $sel>{$b['name']}</option>";
                     }
                 }
               ?>
