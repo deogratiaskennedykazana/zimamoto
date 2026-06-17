@@ -1,15 +1,50 @@
 <?php
-        function registerUser(mysqli $conn, string $name, string $email, string $role, string $type, string $password, string $level, int $branchId){
+        function registerUser(mysqli $conn, string $name, string $email, string $role, string $type, string $password, string $level, int $branchId, string $phone = '', string $status = 'approved'){
             if($conn === false){
                 exit();
             }
-            $sql = "INSERT IGNORE INTO `users`( `name`, `email`, `role`, `type`, `password`, `level`, `branch_id`) VALUES (?,?,?,?,?,?,?);";
+            $sql = "INSERT IGNORE INTO `users`( `name`, `email`, `role`, `type`, `password`, `level`, `branch_id`, `phone`, `status`) VALUES (?,?,?,?,?,?,?,?,?);";
             $stmt = $conn->prepare($sql);
             if($stmt === false){
                 exit();
             }
-            $stmt->bind_param("ssssssi", $name,$email,$role, $type,$password,$level, $branchId);
+            $stmt->bind_param("ssssssiss", $name,$email,$role, $type,$password,$level, $branchId, $phone, $status);
             return ($stmt->execute()) ? $stmt->insert_id : $stmt->errno;
+        }
+
+        function selectUsersByRole(mysqli $conn, string $role){
+            if($conn === false){
+                exit();
+            }
+            $sql = "SELECT * FROM `users` WHERE role = ? AND deleted_at IS NULL;";
+            $stmt = $conn->prepare($sql);
+            if($stmt === false){
+                exit();
+            }
+            $stmt->bind_param("s", $role);
+            return ($stmt->execute()) ? stmt_fetch_all($stmt) : $stmt->error;
+        }
+
+        function selectPendingUsers(mysqli $conn){
+            if($conn === false){
+                exit();
+            }
+            $sql = "SELECT users.*, branches.name AS branch_name FROM users LEFT JOIN branches ON users.branch_id = branches.id WHERE users.status = 'pending' AND users.deleted_at IS NULL ORDER BY users.created_at DESC;";
+            $result = $conn->query($sql);
+            return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
+        }
+
+        function setUserStatus(mysqli $conn, int $userId, string $status){
+            if($conn === false){
+                exit();
+            }
+            $sql = "UPDATE `users` SET `status` = ? WHERE `id` = ?;";
+            $stmt = $conn->prepare($sql);
+            if($stmt === false){
+                exit();
+            }
+            $stmt->bind_param("si", $status, $userId);
+            return ($stmt->execute()) ? true : $stmt->error;
         }
         
         
@@ -140,7 +175,11 @@ $sql = "SELECT users.*, branches.name AS branch_name
             if($conn === false){
                 exit();
             }
-            $sql = "SELECT * FROM `users` WHERE `email` = ? OR `phone` = ? AND deleted_at IS NULL;";
+            // FIX: AND has higher precedence than OR — wrap conditions in parentheses
+            // Old (buggy):  WHERE email=? OR phone=? AND deleted_at IS NULL
+            // Parsed as:    WHERE email=? OR (phone=? AND deleted_at IS NULL)
+            // i.e. deleted_at was not checked when matching by email
+            $sql = "SELECT * FROM `users` WHERE (`email` = ? OR `phone` = ?) AND deleted_at IS NULL;";
             $stmt = $conn->prepare($sql);
             if($stmt === false){
                 exit();

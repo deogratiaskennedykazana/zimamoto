@@ -1,8 +1,9 @@
 <?php
     session_start();
-    if(!$_SESSION){
-      //print_r("hello");
-       echo "<script> window.location.href='./login.php'</script>";
+    // FIX: !$_SESSION is always false (arrays are truthy). Check userid instead.
+    if (!isset($_SESSION['userid'])) {
+        echo "<script>window.location.href='./login.php';</script>";
+        exit;
     }
    // print_r($_SESSION);
     
@@ -1471,6 +1472,11 @@ case"process_general_loan_repayment_upload":
                     break;
                 }
                 include("./views/notifications/test_notifications.php");
+                break;
+
+            // Pending Member Approvals (admin only)
+            case"pending_approvals":
+                include("./views/member/pending_approvals.php");
                 break;
 
             // Audit Trail

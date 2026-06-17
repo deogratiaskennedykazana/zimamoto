@@ -45,7 +45,7 @@
             $district_id = $conn->real_escape_string($district_ids[$i]);
             $gender = $conn->real_escape_string($genders[$i]);
             $birthdate = $conn->real_escape_string($birthdates[$i]);
-          $newUser = registerUser($conn,$name,$email,"member","member",$password,0,$branch_id);
+          $newUser = registerUser($conn,$name,$email,"member","member",$password,'branch',$branch_id);
           if($newUser){
             $user_id = $newUser;
             $newMember = registerMember($conn,$user_id,$phone,$address,$reg_no,$birthdate,$district_id,$branch_id,$gender,$nida,$check_no);
@@ -91,7 +91,7 @@
           $gender = $conn->real_escape_string($_POST['gender']);
           $birthdate = $conn->real_escape_string($_POST['birthdate']);
           $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
-          $newUser = registerUser($conn,$name,$email,"member","member",$password,0,$branch_id);
+          $newUser = registerUser($conn,$name,$email,"member","member",$password,'branch',$branch_id);
           if($newUser){
             $user_id = $newUser;
             $newMember = registerMember($conn,$user_id,$phone,$address,$reg_no,$birthdate,$district_id,$branch_id,$gender,$nida,$check_no);
@@ -115,7 +115,7 @@
               echo $newSavingSub;
               return;
             }
-            $newLoanSub = createMinsub($conn,$name . " Saving Acount",$user_id,59, $branch_id,'person', 'loan');
+            $newLoanSub = createMinsub($conn,$name . " Loan Account",$user_id,59, $branch_id,'person', 'loan');
             if(!$newLoanSub){
               echo $newLoanSub;
               return;

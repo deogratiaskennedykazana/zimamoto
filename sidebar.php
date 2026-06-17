@@ -4,9 +4,9 @@
 
         <li class="nav-item"><a href="./" class="nav-link"><i class="nav-icon fas fa-th"></i><p>Home</p></a></li>
 
-        <li class="nav-header <?= ((($_SESSION['role'] ?? '') ==='member' || ($_SESSION['role'] ?? '') ==='manager') ||( ($_SESSION['role'] ?? '') ==='loan comitee' || ($_SESSION['role'] ?? '') ==='chairman') && (($_SESSION['userlevel'] ?? '') ==='branch' || ($_SESSION['userlevel'] ?? '') ==='HQ')) ? ' d-none' : '' ?>">Accounting Menu</li>
+        <li class="nav-header <?= ((($_SESSION['role'] ?? '') ==='member' || ($_SESSION['role'] ?? '') ==='manager' || ($_SESSION['role'] ?? '') ==='loan comitee' || ($_SESSION['role'] ?? '') ==='chairman') && (($_SESSION['userlevel'] ?? '') ==='branch' || ($_SESSION['userlevel'] ?? '') ==='HQ')) ? ' d-none' : '' ?>">Accounting Menu</li>
 
-        <li class="nav-item <?= ((($_SESSION['role'] ?? '') ==='member' || ($_SESSION['role'] ?? '') ==='manager') ||( ($_SESSION['role'] ?? '') ==='loan comitee' || ($_SESSION['role'] ?? '') ==='chairman') && (($_SESSION['userlevel'] ?? '') ==='branch' || ($_SESSION['userlevel'] ?? '') ==='HQ')) ? ' d-none' : '' ?>">
+        <li class="nav-item <?= ((($_SESSION['role'] ?? '') ==='member' || ($_SESSION['role'] ?? '') ==='manager' || ($_SESSION['role'] ?? '') ==='loan comitee' || ($_SESSION['role'] ?? '') ==='chairman') && (($_SESSION['userlevel'] ?? '') ==='branch' || ($_SESSION['userlevel'] ?? '') ==='HQ')) ? ' d-none' : '' ?>">
             <a href="#" class="nav-link"><i class="nav-icon fas fa-tachometer-alt"></i><p>Account Creations<i class="right fas fa-angle-left"></i></p></a>
             <ul class="nav nav-treeview">
                 <li class="nav-item"><a href="./?page=Add_masters" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Masters list</p></a></li>
@@ -17,7 +17,7 @@
             </ul>
         </li>
  
-        <li class="nav-item <?= ((($_SESSION['role'] ?? '') ==='member' || ($_SESSION['role'] ?? '') ==='manager') ||( ($_SESSION['role'] ?? '') ==='loan comitee' || ($_SESSION['role'] ?? '') ==='chairman') && (($_SESSION['userlevel'] ?? '') ==='branch' || ($_SESSION['userlevel'] ?? '') ==='HQ')) ? ' d-none' : '' ?>">
+        <li class="nav-item <?= ((($_SESSION['role'] ?? '') ==='member' || ($_SESSION['role'] ?? '') ==='manager' || ($_SESSION['role'] ?? '') ==='loan comitee' || ($_SESSION['role'] ?? '') ==='chairman') && (($_SESSION['userlevel'] ?? '') ==='branch' || ($_SESSION['userlevel'] ?? '') ==='HQ')) ? ' d-none' : '' ?>">
             <a href="#" class="nav-link"><i class="nav-icon fas fa-tachometer-alt"></i><p>Subsidiary<i class="right fas fa-angle-left"></i></p></a>
             <ul class="nav nav-treeview">
                 <li class="nav-item"><a href="./?page=create_subsidiary" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Create Subsidiaries</p></a></li>
@@ -79,7 +79,7 @@
               <li class="nav-item"><a href="./?page=transaction_list" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Transaction Lists</p></a></li>
             </ul>
           </li>
-          <li class="nav-item <?= ((($_SESSION['role'] ?? '') ==='member' || ($_SESSION['role'] ?? '') ==='' || ($_SESSION['role'] ?? '') ==='loan comitee' || ($_SESSION['role'] ?? '') ==='chairman') && (($_SESSION['userlevel'] ?? '') ==='branch' || ($_SESSION['userlevel'] ?? '') ==='HQ')) ? ' d-none' : '' ?>">
+          <li class="nav-item <?= ((($_SESSION['role'] ?? '') ==='member' || ($_SESSION['role'] ?? '') ==='manager' || ($_SESSION['role'] ?? '') ==='loan comitee' || ($_SESSION['role'] ?? '') ==='chairman') && (($_SESSION['userlevel'] ?? '') ==='branch' || ($_SESSION['userlevel'] ?? '') ==='HQ')) ? ' d-none' : '' ?>">
             <a href="#" class="nav-link"><i class="nav-icon fas fa-sticky-note"></i><p>Sub Reports<i class="right fas fa-angle-left"></i></p></a>
             <ul class="nav nav-treeview">
               <li class="nav-item"><a href="./?page=min_sub_report_form" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Min sub report</p></a></li>
@@ -88,7 +88,7 @@
               <li class="nav-item"><a href="./?page=sub_report_by_branch" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Subsidiary Report By Branch</p></a></li>
             </ul>
           </li>
-          <li class="nav-item <?= ((($_SESSION['role'] ?? '') ==='member' || ($_SESSION['role'] ?? '') ==='' || ($_SESSION['role'] ?? '') ==='loan comitee' || ($_SESSION['role'] ?? '') ==='chairman') && (($_SESSION['userlevel'] ?? '') ==='branch' || ($_SESSION['userlevel'] ?? '') ==='HQ')) ? ' d-none' : '' ?>">
+          <li class="nav-item <?= ((($_SESSION['role'] ?? '') ==='member' || ($_SESSION['role'] ?? '') ==='manager' || ($_SESSION['role'] ?? '') ==='loan comitee' || ($_SESSION['role'] ?? '') ==='chairman') && (($_SESSION['userlevel'] ?? '') ==='branch' || ($_SESSION['userlevel'] ?? '') ==='HQ')) ? ' d-none' : '' ?>">
             <a href="#" class="nav-link"><i class="nav-icon fas fa-sticky-note"></i><p>Financial Report<i class="right fas fa-angle-left"></i></p></a>
             <ul class="nav nav-treeview">
               <li class="nav-item"><a href="./?page=pending_voucher_list" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Pending Voucher List</p></a></li>
@@ -104,8 +104,8 @@
             </ul>
           </li>
 
-          <li class="nav-header <?= ((($_SESSION['role'] ?? '') ==='member' || ($_SESSION['role'] ?? '') ==='' || ($_SESSION['role'] ?? '') ==='loan comitee' || ($_SESSION['role'] ?? '') ==='chairman') && (($_SESSION['userlevel'] ?? '') ==='branch' || ($_SESSION['userlevel'] ?? '') ==='HQ')) ? ' d-none' : '' ?>">Member Menu</li>
-          <li class="nav-item <?= ((($_SESSION['role'] ?? '') ==='member' || ($_SESSION['role'] ?? '') ==='' || ($_SESSION['role'] ?? '') ==='loan comitee' || ($_SESSION['role'] ?? '') ==='chairman') && (($_SESSION['userlevel'] ?? '') ==='branch' || ($_SESSION['userlevel'] ?? '') ==='HQ')) ? ' d-none' : '' ?>">
+          <li class="nav-header <?= ((($_SESSION['role'] ?? '') ==='member' || ($_SESSION['role'] ?? '') ==='manager' || ($_SESSION['role'] ?? '') ==='loan comitee' || ($_SESSION['role'] ?? '') ==='chairman') && (($_SESSION['userlevel'] ?? '') ==='branch' || ($_SESSION['userlevel'] ?? '') ==='HQ')) ? ' d-none' : '' ?>">Member Menu</li>
+          <li class="nav-item <?= ((($_SESSION['role'] ?? '') ==='member' || ($_SESSION['role'] ?? '') ==='manager' || ($_SESSION['role'] ?? '') ==='loan comitee' || ($_SESSION['role'] ?? '') ==='chairman') && (($_SESSION['userlevel'] ?? '') ==='branch' || ($_SESSION['userlevel'] ?? '') ==='HQ')) ? ' d-none' : '' ?>">
             <a href="#" class="nav-link"><i class="nav-icon fas fa-tachometer-alt"></i><p>Member Management<i class="right fas fa-angle-left"></i></p></a>
             <ul class="nav nav-treeview">
               <li class="nav-item"><a href="./?page=register_member" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Register Member</p></a></li>
@@ -206,6 +206,7 @@
              <ul class="nav nav-treeview">
                <li class="nav-item"><a href="./?page=manage_roles" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Manage Roles</p></a></li>
                <li class="nav-item"><a href="./?page=assign_user_roles" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Assign Roles</p></a></li>
+               <li class="nav-item"><a href="./?page=pending_members" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Pending Member Approvals</p></a></li>
                <li class="nav-item"><a href="./?page=audit_trail" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Audit Trail</p></a></li>
              </ul>
            </li>
