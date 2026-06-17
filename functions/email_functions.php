@@ -37,54 +37,6 @@ function sendEmail($to, $subject, $message, $fromEmail = null, $fromName = null)
 }
 
 /**
- * Send SMS using Africa's Talking API
- */
-function sendSMS($phoneNumber, $message) {
-    // Remove any non-numeric characters
-    $phoneNumber = preg_replace('/[^0-9]/', '', $phoneNumber);
-    
-    // Ensure phone starts with country code
-    if (substr($phoneNumber, 0, 1) == '0') {
-        $phoneNumber = '255' . substr($phoneNumber, 1);
-    } elseif (substr($phoneNumber, 0, 1) == '7' || substr($phoneNumber, 0, 1) == '6') {
-        $phoneNumber = '255' . $phoneNumber;
-    }
-    
-    try {
-        // Using Africa's Talking API
-        $url = 'https://api.africastalking.com/version1/messaging';
-        $data = [
-            'username' => SMS_USERNAME,
-            'to' => $phoneNumber,
-            'message' => $message,
-            'from' => SMS_FROM
-        ];
-        
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'Accept: application/json',
-            'Content-Type: application/x-www-form-urlencoded',
-            'apiKey: ' . SMS_API_KEY
-        ]);
-        
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-        
-        if ($httpCode == 200 || $httpCode == 201) {
-            return ['success' => true, 'message' => 'SMS sent successfully'];
-        } else {
-            return ['success' => false, 'message' => 'Failed to send SMS: ' . $response];
-        }
-    } catch (Exception $e) {
-        return ['success' => false, 'message' => $e->getMessage()];
-    }
-}
-
-/**
  * Queue a notification for processing
  */
 function queueNotification(mysqli $conn, $userId, $type, $subject, $message, $recipient) {
