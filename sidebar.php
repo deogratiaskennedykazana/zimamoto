@@ -193,6 +193,11 @@
            </li>
 
 <<<<<<< HEAD
+           <!-- ACCOUNT SECURITY — Google Authenticator 2FA is admin-only; hidden from members -->
+           <li class="nav-header <?= (($_SESSION['role'] ?? '') === 'member') ? ' d-none' : '' ?>">Account Security</li>
+           <li class="nav-item <?= (($_SESSION['role'] ?? '') === 'member') ? ' d-none' : '' ?>">
+=======
+<<<<<<< HEAD
 <<<<<<< HEAD
            <!-- ACCOUNT SECURITY — Google Authenticator 2FA is admin-only; hidden from members -->
            <li class="nav-header <?= (($_SESSION['role'] ?? '') === 'member') ? ' d-none' : '' ?>">Account Security</li>
@@ -207,6 +212,7 @@
            <li class="nav-header">Account Security</li>
            <li class="nav-item">
 >>>>>>> parent of 3a56587 (hey)
+>>>>>>> 648ec719f343dd2afb993bb9d43ab529d58f1594
              <a href="./?page=mfa_setup" class="nav-link"><i class="nav-icon fas fa-shield-alt"></i><p>Two-Factor Auth (2FA)</p></a>
            </li>
 
