@@ -352,3 +352,5 @@ if ($showRecovery) unset($_SESSION['show_recovery_codes']);
         <?php endif; ?>
 
         <?php endif; ?>
+    </div>
+</div>
