@@ -1,0 +1,110 @@
+[11-Jun-2026 12:23:59 Asia/Kolkata] PHP Fatal error:  Uncaught mysqli_sql_exception: Unknown column 'mt.transaction_date' in 'WHERE' in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php:44
+Stack trace:
+#0 /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php(44): mysqli->prepare()
+#1 /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/index.php(204): include('/home/tellicerp...')
+#2 {main}
+  thrown in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 44
+[11-Jun-2026 12:30:54 Asia/Kolkata] PHP Fatal error:  Uncaught mysqli_sql_exception: Unknown column 'mt.transaction_date' in 'WHERE' in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php:44
+Stack trace:
+#0 /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php(44): mysqli->prepare()
+#1 /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/index.php(204): include('/home/tellicerp...')
+#2 {main}
+  thrown in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 44
+[11-Jun-2026 12:32:38 Asia/Kolkata] PHP Fatal error:  Uncaught mysqli_sql_exception: Unknown column 'mt.transaction_date' in 'WHERE' in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php:44
+Stack trace:
+#0 /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php(44): mysqli->prepare()
+#1 /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/index.php(204): include('/home/tellicerp...')
+#2 {main}
+  thrown in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 44
+[11-Jun-2026 17:02:26 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 8
+[11-Jun-2026 17:02:26 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/notification.php on line 8
+[11-Jun-2026 17:08:23 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 8
+[11-Jun-2026 17:08:23 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/notification.php on line 8
+[11-Jun-2026 18:17:20 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 8
+[11-Jun-2026 18:17:20 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/notification.php on line 8
+[11-Jun-2026 23:57:44 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 8
+[11-Jun-2026 23:57:44 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/notification.php on line 8
+[12-Jun-2026 02:12:51 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 8
+[12-Jun-2026 02:12:51 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/notification.php on line 8
+[12-Jun-2026 13:07:21 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 8
+[12-Jun-2026 13:07:21 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/notification.php on line 8
+[12-Jun-2026 13:07:32 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 8
+[12-Jun-2026 13:07:32 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/notification.php on line 8
+[12-Jun-2026 13:15:22 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 8
+[12-Jun-2026 13:15:22 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/notification.php on line 8
+[12-Jun-2026 16:34:54 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 8
+[12-Jun-2026 16:34:54 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/notification.php on line 8
+[12-Jun-2026 16:34:54 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 8
+[12-Jun-2026 16:34:54 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/notification.php on line 8
+[12-Jun-2026 19:03:14 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/grantor/my_grantor_requests.php on line 5
+[12-Jun-2026 19:03:14 Asia/Kolkata] PHP Fatal error:  Uncaught TypeError: selectGrantorPendingRequests(): Argument #2 ($grantorId) must be of type int, null given, called in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/grantor/my_grantor_requests.php on line 5 and defined in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/functions/grantor_functions.php:31
+Stack trace:
+#0 /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/grantor/my_grantor_requests.php(5): selectGrantorPendingRequests()
+#1 /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/index.php(1423): include('/home/tellicerp...')
+#2 {main}
+  thrown in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/functions/grantor_functions.php on line 31
+[12-Jun-2026 19:15:14 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 8
+[12-Jun-2026 19:15:14 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/notification.php on line 8
+[12-Jun-2026 20:39:47 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 8
+[12-Jun-2026 20:39:48 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/notification.php on line 8
+[12-Jun-2026 21:12:58 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 8
+[12-Jun-2026 21:12:58 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/notification.php on line 8
+[12-Jun-2026 21:19:54 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 8
+[12-Jun-2026 21:19:54 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/notification.php on line 8
+[13-Jun-2026 15:59:13 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 8
+[13-Jun-2026 15:59:13 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/notification.php on line 8
+[13-Jun-2026 16:29:42 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 8
+[13-Jun-2026 16:29:42 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/notification.php on line 8
+[13-Jun-2026 16:29:45 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 8
+[13-Jun-2026 16:29:45 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/notification.php on line 8
+[13-Jun-2026 16:38:52 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 8
+[13-Jun-2026 16:38:52 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/notification.php on line 8
+[13-Jun-2026 16:38:53 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 8
+[13-Jun-2026 16:38:53 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/notification.php on line 8
+[13-Jun-2026 18:19:29 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 8
+[13-Jun-2026 18:19:29 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/notification.php on line 8
+[13-Jun-2026 18:58:32 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 8
+[13-Jun-2026 18:58:32 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/notification.php on line 8
+[14-Jun-2026 06:11:46 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 8
+[14-Jun-2026 06:11:46 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/notification.php on line 8
+[14-Jun-2026 15:39:24 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 8
+[14-Jun-2026 15:39:24 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/notification.php on line 8
+[14-Jun-2026 17:20:42 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 8
+[14-Jun-2026 17:20:42 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/notification.php on line 8
+[14-Jun-2026 19:11:20 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 8
+[14-Jun-2026 19:11:20 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/notification.php on line 8
+[14-Jun-2026 20:22:51 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 8
+[14-Jun-2026 20:22:51 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/notification.php on line 8
+[15-Jun-2026 04:15:19 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 8
+[15-Jun-2026 04:15:19 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/notification.php on line 8
+[15-Jun-2026 04:15:19 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 8
+[15-Jun-2026 04:15:19 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/notification.php on line 8
+[15-Jun-2026 04:24:31 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 8
+[15-Jun-2026 04:24:31 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/notification.php on line 8
+[15-Jun-2026 07:14:39 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 8
+[15-Jun-2026 07:14:39 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/notification.php on line 8
+[15-Jun-2026 15:27:02 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 8
+[15-Jun-2026 15:27:02 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/notification.php on line 8
+[15-Jun-2026 15:27:06 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 8
+[15-Jun-2026 15:27:06 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/notification.php on line 8
+[15-Jun-2026 16:14:07 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 8
+[15-Jun-2026 16:14:07 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/notification.php on line 8
+[15-Jun-2026 16:23:28 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 8
+[15-Jun-2026 16:23:28 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/notification.php on line 8
+[16-Jun-2026 05:54:13 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 8
+[16-Jun-2026 05:54:13 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/notification.php on line 8
+[16-Jun-2026 09:04:49 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 8
+[16-Jun-2026 09:04:49 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/notification.php on line 8
+[16-Jun-2026 10:37:53 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 8
+[16-Jun-2026 10:37:53 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/notification.php on line 8
+[16-Jun-2026 10:37:55 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 8
+[16-Jun-2026 10:37:55 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/notification.php on line 8
+[16-Jun-2026 10:42:32 Asia/Kolkata] PHP Fatal error:  Uncaught mysqli_sql_exception: Too many connections in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/configs.php:68
+Stack trace:
+#0 /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/configs.php(68): mysqli_connect()
+#1 /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/index.php(81): openConn()
+#2 {main}
+  thrown in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/configs.php on line 68
+[16-Jun-2026 11:39:55 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/member.php on line 8
+[16-Jun-2026 11:39:55 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/dashboard/notification.php on line 8
+[16-Jun-2026 11:46:39 Asia/Kolkata] PHP Warning:  Undefined array key "userid" in /home/tellicerpsysco/zimamoto.tellicerpsys.co.tz/views/roles/mfa_setup.php on line 8
