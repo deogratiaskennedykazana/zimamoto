@@ -107,8 +107,19 @@ $sql = "SELECT users.*, branches.name AS branch_name
             if($conn === false){
                 exit();
             }
-            // Only return approved members — pending/inactive users must not appear as grantors
-            $sql = "SELECT users.*, branches.name as branch_name FROM `users` INNER JOIN branches ON branches.id = users.branch_id WHERE users.branch_id = ? AND users.deleted_at IS NULL AND users.status = 'approved';";
+            // Use members.branch_id as the authoritative branch source.
+            // users.branch_id is often stale/wrong for historical records because
+            // update_member never updated it — only members.branch_id was kept current.
+            // Joining through members ensures ALL branch members appear in the grantor list.
+            $sql = "SELECT users.*, branches.name as branch_name
+                    FROM users
+                    INNER JOIN members ON members.user_id = users.id
+                    INNER JOIN branches ON branches.id = members.branch_id
+                    WHERE members.branch_id = ?
+                      AND members.deleted_at IS NULL
+                      AND users.deleted_at IS NULL
+                      AND users.status = 'approved'
+                    ORDER BY users.name ASC;";
             $stmt = $conn->prepare($sql);
             if($stmt === false){
                 exit();

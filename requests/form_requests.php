@@ -159,9 +159,19 @@ if(isset($_GET['get_min_sub_by_branch_id'])){
             $branchId = isset($_GET['branchId']) ? (int) $_GET['branchId'] : 0;
 
             if ($userId > 0) {
-                $currentUser = selectUserById($conn, $userId);
-                if ($currentUser && is_array($currentUser) && !empty($currentUser['branch_id'])) {
-                    $branchId = (int) $currentUser['branch_id']; // always use fresh DB value
+                // Use members.branch_id as the authoritative source — it is kept
+                // more up-to-date than users.branch_id on this installation.
+                $branchStmt = $conn->prepare(
+                    "SELECT members.branch_id FROM members WHERE members.user_id = ? AND members.deleted_at IS NULL LIMIT 1"
+                );
+                if ($branchStmt) {
+                    $branchStmt->bind_param("i", $userId);
+                    $branchStmt->execute();
+                    $branchRow = $branchStmt->get_result()->fetch_assoc();
+                    $branchStmt->close();
+                    if ($branchRow && !empty($branchRow['branch_id'])) {
+                        $branchId = (int) $branchRow['branch_id'];
+                    }
                 }
             }
 
