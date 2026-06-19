@@ -236,14 +236,22 @@
         } 
         
         if(isset($_POST['change_branch'])) {
-            $member_id = $_POST['member_id'];
-            $new_branch_id = $_POST['new_branch_id'];
-            
-             
-            $sql = "UPDATE members SET branch_id = '$new_branch_id' WHERE id = $member_id";
-            $conn->query($sql);
-            
-            echo "<script>alert('SUCCESS'); window.location.href='../?page=change_branch_member&member_id=$member_id&branch_id= $new_branch_id'</script>"; 
+            $member_id  = (int) $_POST['member_id'];
+            $new_branch_id = (int) $_POST['new_branch_id'];
+
+            // Update members table
+            $stmt1 = $conn->prepare("UPDATE members SET branch_id = ? WHERE id = ?");
+            $stmt1->bind_param("ii", $new_branch_id, $member_id);
+            $stmt1->execute();
+            $stmt1->close();
+
+            // ALSO update users.branch_id so grantor/branch queries stay in sync
+            $stmt2 = $conn->prepare("UPDATE users u INNER JOIN members m ON m.user_id = u.id SET u.branch_id = ? WHERE m.id = ?");
+            $stmt2->bind_param("ii", $new_branch_id, $member_id);
+            $stmt2->execute();
+            $stmt2->close();
+
+            echo "<script>alert('Branch changed successfully'); window.location.href='../?page=change_branch_member&member_id={$member_id}&branch_id={$new_branch_id}'</script>";
         }
         
        

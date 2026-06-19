@@ -1518,6 +1518,7 @@ case"process_general_loan_repayment_upload":
 
             // Pending Member Approvals (admin only)
             case"pending_approvals":
+            case"pending_members":
                 include("./views/member/pending_approvals.php");
                 break;
 

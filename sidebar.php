@@ -1,12 +1,40 @@
  <!-- Sidebar Menu -->
+<?php
+/**
+ * Pre-compute visibility flags for the sidebar.
+ * Non-members always see everything.
+ * Members only see a section if the RBAC system grants them access.
+ * The old users.role string check is kept as a fallback for legacy roles.
+ */
+$_sRole  = strtolower($_SESSION['role'] ?? '');
+$_sLevel = strtolower($_SESSION['userlevel'] ?? '');
+$_sUid   = (int)($_SESSION['userid'] ?? 0);
+
+// Roles that are treated as "restricted" like a member (original logic)
+$_restrictedRoles = ['member', 'manager', 'loan comitee', 'chairman'];
+$_isRestricted    = in_array($_sRole, $_restrictedRoles) && in_array($_sLevel, ['branch', 'hq']);
+$_isMember        = ($_sRole === 'member');
+
+// Helper: hide class based on flag
+function _sideHide(bool $hide): string { return $hide ? ' d-none' : ''; }
+
+// RBAC permission checks (only query DB for members — others see all)
+$_canAccounting = !$_isRestricted || userHasPermission($conn, $_sUid, 'Reports', 'can_view');
+$_canVouchers   = !$_isRestricted || userHasPermission($conn, $_sUid, 'Reports', 'can_view');
+$_canReports    = !$_isRestricted || userHasPermission($conn, $_sUid, 'Reports', 'can_view');
+$_canMembers    = !$_isRestricted || userHasPermission($conn, $_sUid, 'Members', 'can_view');
+$_canAdmin      = !$_isRestricted || userHasPermission($conn, $_sUid, 'Roles',   'can_view');
+$_canBudget     = !$_isMember     || userHasPermission($conn, $_sUid, 'Budget',  'can_view');
+$_canMeetings   = !$_isMember     || userHasPermission($conn, $_sUid, 'Meetings','can_view');
+?>
 <nav class="mt-2">
     <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
 
         <li class="nav-item"><a href="./" class="nav-link"><i class="nav-icon fas fa-th"></i><p>Home</p></a></li>
 
-        <li class="nav-header <?= ((($_SESSION['role'] ?? '') ==='member' || ($_SESSION['role'] ?? '') ==='manager' || ($_SESSION['role'] ?? '') ==='loan comitee' || ($_SESSION['role'] ?? '') ==='chairman') && (($_SESSION['userlevel'] ?? '') ==='branch' || ($_SESSION['userlevel'] ?? '') ==='HQ')) ? ' d-none' : '' ?>">Accounting Menu</li>
+        <li class="nav-header<?= _sideHide(!$_canAccounting) ?>">Accounting Menu</li>
 
-        <li class="nav-item <?= ((($_SESSION['role'] ?? '') ==='member' || ($_SESSION['role'] ?? '') ==='manager' || ($_SESSION['role'] ?? '') ==='loan comitee' || ($_SESSION['role'] ?? '') ==='chairman') && (($_SESSION['userlevel'] ?? '') ==='branch' || ($_SESSION['userlevel'] ?? '') ==='HQ')) ? ' d-none' : '' ?>">
+        <li class="nav-item<?= _sideHide(!$_canAccounting) ?>">
             <a href="#" class="nav-link"><i class="nav-icon fas fa-tachometer-alt"></i><p>Account Creations<i class="right fas fa-angle-left"></i></p></a>
             <ul class="nav nav-treeview">
                 <li class="nav-item"><a href="./?page=Add_masters" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Masters list</p></a></li>
@@ -17,7 +45,7 @@
             </ul>
         </li>
  
-        <li class="nav-item <?= ((($_SESSION['role'] ?? '') ==='member' || ($_SESSION['role'] ?? '') ==='manager' || ($_SESSION['role'] ?? '') ==='loan comitee' || ($_SESSION['role'] ?? '') ==='chairman') && (($_SESSION['userlevel'] ?? '') ==='branch' || ($_SESSION['userlevel'] ?? '') ==='HQ')) ? ' d-none' : '' ?>">
+        <li class="nav-item<?= _sideHide(!$_canAccounting) ?>">
             <a href="#" class="nav-link"><i class="nav-icon fas fa-tachometer-alt"></i><p>Subsidiary<i class="right fas fa-angle-left"></i></p></a>
             <ul class="nav nav-treeview">
                 <li class="nav-item"><a href="./?page=create_subsidiary" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Create Subsidiaries</p></a></li>
@@ -25,7 +53,7 @@
             </ul>
         </li>
         
-          <li class="nav-item <?= ((($_SESSION['role'] ?? '') ==='member' || ($_SESSION['role'] ?? '') ==='manager' || ($_SESSION['role'] ?? '') ==='loan comitee' || ($_SESSION['role'] ?? '') ==='chairman') && (($_SESSION['userlevel'] ?? '') ==='branch' || ($_SESSION['userlevel'] ?? '') ==='HQ')) ? ' d-none' : '' ?>">
+          <li class="nav-item<?= _sideHide(!$_canAccounting) ?>">
             <a href="#" class="nav-link ">
               <i class="nav-icon fas fa-tachometer-alt"></i>
               <p>Min subsidiary <i class="right fas fa-angle-left"></i></p>
@@ -44,8 +72,8 @@
             </ul>
         </li>
 
-          <li class="nav-header <?= ((($_SESSION['role'] ?? '') ==='member' || ($_SESSION['role'] ?? '') ==='manager' || ($_SESSION['role'] ?? '') ==='loan comitee' || ($_SESSION['role'] ?? '') ==='chairman') && (($_SESSION['userlevel'] ?? '') ==='branch' || ($_SESSION['userlevel'] ?? '') ==='HQ')) ? ' d-none' : '' ?>">Voucher Menu</li>
-          <li class="nav-item <?= ((($_SESSION['role'] ?? '') ==='member' || ($_SESSION['role'] ?? '') ==='manager' || ($_SESSION['role'] ?? '') ==='loan comitee' || ($_SESSION['role'] ?? '') ==='chairman') && (($_SESSION['userlevel'] ?? '') ==='branch' || ($_SESSION['userlevel'] ?? '') ==='HQ')) ? ' d-none' : '' ?>">
+          <li class="nav-header<?= _sideHide(!$_canVouchers) ?>">Voucher Menu</li>
+          <li class="nav-item<?= _sideHide(!$_canVouchers) ?>">
             <a href="#" class="nav-link"><i class="nav-icon fas fa-clipboard"></i><p>Voucher Creation<i class="right fas fa-angle-left"></i></p></a>
             <ul class="nav nav-treeview">
               <li class="nav-item"><a href="./?page=receipt_voucher" class="nav-link"><i class="fas fa-angle-right nav-icon"></i><p>Receipt Voucher</p></a></li>
@@ -55,7 +83,7 @@
               <li class="nav-item"><a href="./?page=sales_voucher" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Sales Voucher</p></a></li>
             </ul>
           </li>
-          <li class="nav-item <?= ((($_SESSION['role'] ?? '') ==='member' || ($_SESSION['role'] ?? '') ==='manager' || ($_SESSION['role'] ?? '') ==='loan comitee' || ($_SESSION['role'] ?? '') ==='chairman') && (($_SESSION['userlevel'] ?? '') ==='branch' || ($_SESSION['userlevel'] ?? '') ==='HQ')) ? ' d-none' : '' ?>">
+          <li class="nav-item<?= _sideHide(!$_canVouchers) ?>">
             <a href="#" class="nav-link"><i class="nav-icon fas fa-folder-open"></i><p>Min Voucher Creation<i class="right fas fa-angle-left"></i></p></a>
             <ul class="nav nav-treeview">
               <li class="nav-item"><a href="./?page=min_receipt_voucher" class="nav-link"><i class="fas fa-plus nav-icon"></i><p>Min Receipt Voucher</p></a></li>
@@ -63,7 +91,7 @@
               <li class="nav-item"><a href="./?page=min_journal_voucher" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Min Journal Voucher</p></a></li>
             </ul>
           </li>
-          <li class="nav-item <?= ((($_SESSION['role'] ?? '') ==='member' || ($_SESSION['role'] ?? '') ==='manager' || ($_SESSION['role'] ?? '') ==='loan comitee' || ($_SESSION['role'] ?? '') ==='chairman') && (($_SESSION['userlevel'] ?? '') ==='branch' || ($_SESSION['userlevel'] ?? '') ==='HQ')) ? ' d-none' : '' ?>">
+          <li class="nav-item<?= _sideHide(!$_canVouchers) ?>">
             <a href="#" class="nav-link"><i class="nav-icon fas fa-folder-open"></i><p>Min Opening Balance<i class="right fas fa-angle-left"></i></p></a>
             <ul class="nav nav-treeview">
               <li class="nav-item"><a href="./?page=add_min_opening_balance" class="nav-link"><i class="fas fa-plus nav-icon"></i><p>Add Min Opening Balance</p></a></li>
@@ -71,15 +99,15 @@
             </ul>
           </li>
 
-          <li class="nav-header <?= ((($_SESSION['role'] ?? '') ==='member' || ($_SESSION['role'] ?? '') ==='manager' || ($_SESSION['role'] ?? '') ==='loan comitee' || ($_SESSION['role'] ?? '') ==='chairman') && (($_SESSION['userlevel'] ?? '') ==='branch' || ($_SESSION['userlevel'] ?? '') ==='HQ')) ? ' d-none' : '' ?>">Accounting Report</li>
-          <li class="nav-item <?= ((($_SESSION['role'] ?? '') ==='member' || ($_SESSION['role'] ?? '') ==='manager' || ($_SESSION['role'] ?? '') ==='loan comitee' || ($_SESSION['role'] ?? '') ==='chairman') && (($_SESSION['userlevel'] ?? '') ==='branch' || ($_SESSION['userlevel'] ?? '') ==='HQ')) ? ' d-none' : '' ?>">
+          <li class="nav-header<?= _sideHide(!$_canReports) ?>">Accounting Report</li>
+          <li class="nav-item<?= _sideHide(!$_canReports) ?>">
             <a href="#" class="nav-link"><i class="nav-icon fas fa-sticky-note"></i><p>Voucher Report<i class="right fas fa-angle-left"></i></p></a>
             <ul class="nav nav-treeview">
               <li class="nav-item"><a href="./?page=pending_voucher_list" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Pending Voucher List</p></a></li>
               <li class="nav-item"><a href="./?page=transaction_list" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Transaction Lists</p></a></li>
             </ul>
           </li>
-          <li class="nav-item <?= ((($_SESSION['role'] ?? '') ==='member' || ($_SESSION['role'] ?? '') ==='manager' || ($_SESSION['role'] ?? '') ==='loan comitee' || ($_SESSION['role'] ?? '') ==='chairman') && (($_SESSION['userlevel'] ?? '') ==='branch' || ($_SESSION['userlevel'] ?? '') ==='HQ')) ? ' d-none' : '' ?>">
+          <li class="nav-item<?= _sideHide(!$_canReports) ?>">
             <a href="#" class="nav-link"><i class="nav-icon fas fa-sticky-note"></i><p>Sub Reports<i class="right fas fa-angle-left"></i></p></a>
             <ul class="nav nav-treeview">
               <li class="nav-item"><a href="./?page=min_sub_report_form" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Min sub report</p></a></li>
@@ -88,7 +116,7 @@
               <li class="nav-item"><a href="./?page=sub_report_by_branch" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Subsidiary Report By Branch</p></a></li>
             </ul>
           </li>
-          <li class="nav-item <?= ((($_SESSION['role'] ?? '') ==='member' || ($_SESSION['role'] ?? '') ==='manager' || ($_SESSION['role'] ?? '') ==='loan comitee' || ($_SESSION['role'] ?? '') ==='chairman') && (($_SESSION['userlevel'] ?? '') ==='branch' || ($_SESSION['userlevel'] ?? '') ==='HQ')) ? ' d-none' : '' ?>">
+          <li class="nav-item<?= _sideHide(!$_canReports) ?>">
             <a href="#" class="nav-link"><i class="nav-icon fas fa-sticky-note"></i><p>Financial Report<i class="right fas fa-angle-left"></i></p></a>
             <ul class="nav nav-treeview">
               <li class="nav-item"><a href="./?page=pending_voucher_list" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Pending Voucher List</p></a></li>
@@ -104,8 +132,8 @@
             </ul>
           </li>
 
-          <li class="nav-header <?= ((($_SESSION['role'] ?? '') ==='member' || ($_SESSION['role'] ?? '') ==='manager' || ($_SESSION['role'] ?? '') ==='loan comitee' || ($_SESSION['role'] ?? '') ==='chairman') && (($_SESSION['userlevel'] ?? '') ==='branch' || ($_SESSION['userlevel'] ?? '') ==='HQ')) ? ' d-none' : '' ?>">Member Menu</li>
-          <li class="nav-item <?= ((($_SESSION['role'] ?? '') ==='member' || ($_SESSION['role'] ?? '') ==='manager' || ($_SESSION['role'] ?? '') ==='loan comitee' || ($_SESSION['role'] ?? '') ==='chairman') && (($_SESSION['userlevel'] ?? '') ==='branch' || ($_SESSION['userlevel'] ?? '') ==='HQ')) ? ' d-none' : '' ?>">
+          <li class="nav-header<?= _sideHide(!$_canMembers) ?>">Member Menu</li>
+          <li class="nav-item<?= _sideHide(!$_canMembers) ?>">
             <a href="#" class="nav-link"><i class="nav-icon fas fa-tachometer-alt"></i><p>Member Management<i class="right fas fa-angle-left"></i></p></a>
             <ul class="nav nav-treeview">
               <li class="nav-item"><a href="./?page=register_member" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Register Member</p></a></li>
@@ -126,19 +154,19 @@
           <li class="nav-item">
             <a href="#" class="nav-link"><i class="nav-icon fas fa-tachometer-alt"></i><p>Loan Management<i class="right fas fa-angle-left"></i></p></a>
             <ul class="nav nav-treeview">
-              <li class="nav-item <?= ((($_SESSION['role'] ?? '') ==='member' || ($_SESSION['role'] ?? '') ==='manager' || ($_SESSION['role'] ?? '') ==='loan comitee' || ($_SESSION['role'] ?? '') ==='chairman') && (($_SESSION['userlevel'] ?? '') ==='branch' || ($_SESSION['userlevel'] ?? '') ==='HQ')) ? ' d-none' : '' ?>">
+              <li class="nav-item<?= _sideHide(!$_canMembers) ?>">
                 <a href="./?page=apply_loan" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Apply Loan</p></a>
               </li>
-              <li class="nav-item <?= ((($_SESSION['role'] ?? '') ==='member' || ($_SESSION['role'] ?? '') ==='manager' || ($_SESSION['role'] ?? '') ==='loan comitee' || ($_SESSION['role'] ?? '') ==='chairman') && (($_SESSION['userlevel'] ?? '') ==='branch' || ($_SESSION['userlevel'] ?? '') ==='HQ')) ? ' d-none' : '' ?>">
+              <li class="nav-item<?= _sideHide(!$_canMembers) ?>">
                 <a href="./?page=upload_loan" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Upload Loan</p></a>
               </li>
-              <li class="nav-item <?= ((($_SESSION['role'] ?? '') ==='member' || ($_SESSION['role'] ?? '') ==='manager' || ($_SESSION['role'] ?? '') ==='loan comitee' || ($_SESSION['role'] ?? '') ==='chairman') && (($_SESSION['userlevel'] ?? '') ==='branch' || ($_SESSION['userlevel'] ?? '') ==='HQ')) ? ' d-none' : '' ?>">
+              <li class="nav-item<?= _sideHide(!$_canMembers) ?>">
                 <a href="./?page=upload_loan_repayments" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Upload Repayments</p></a>
               </li>
-              <li class="nav-item <?= ((($_SESSION['role'] ?? '') ==='member' || ($_SESSION['role'] ?? '') ==='manager' || ($_SESSION['role'] ?? '') ==='loan comitee' || ($_SESSION['role'] ?? '') ==='chairman') && (($_SESSION['userlevel'] ?? '') ==='branch' || ($_SESSION['userlevel'] ?? '') ==='HQ')) ? ' d-none' : '' ?>">
+              <li class="nav-item<?= _sideHide(!$_canMembers) ?>">
                 <a href="./?page=approved_loan_list_form" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Approved Loan List</p></a>
               </li>
-              <li class="nav-item <?= ((($_SESSION['role'] ?? '') ==='member' || ($_SESSION['role'] ?? '') ==='manager' || ($_SESSION['role'] ?? '') ==='loan comitee' || ($_SESSION['role'] ?? '') ==='chairman') && (($_SESSION['userlevel'] ?? '') ==='branch' || ($_SESSION['userlevel'] ?? '') ==='HQ')) ? ' d-none' : '' ?>">
+              <li class="nav-item<?= _sideHide(!$_canMembers) ?>">
                 <a href="./?page=Pending_loan_list_form" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Pending Loan List</p></a>
               </li>
              <!-- Member self-service loan link -->
@@ -152,12 +180,8 @@
           </li>
 
            <!-- BUDGET MANAGEMENT MENU -->
-           <?php
-           $canViewBudget = (($_SESSION['role'] ?? '') !== 'member' ||
-               userHasPermission($conn, (int)$_SESSION['userid'], 'Budget', 'can_view'));
-           ?>
-           <li class="nav-header<?= $canViewBudget ? '' : ' d-none' ?>">Budget Management</li>
-           <li class="nav-item<?= $canViewBudget ? '' : ' d-none' ?>">
+           <li class="nav-header<?= _sideHide(!$_canBudget) ?>">Budget Management</li>
+           <li class="nav-item<?= _sideHide(!$_canBudget) ?>">
              <a href="#" class="nav-link"><i class="nav-icon fas fa-chart-pie"></i><p>Budget<i class="right fas fa-angle-left"></i></p></a>
              <ul class="nav nav-treeview">
                <li class="nav-item"><a href="./?page=create_budget" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Create Budget</p></a></li>
@@ -166,12 +190,8 @@
            </li>
 
            <!-- MEETING MINUTES MENU -->
-           <?php
-           $canViewMeetings = (($_SESSION['role'] ?? '') !== 'member' ||
-               userHasPermission($conn, (int)$_SESSION['userid'], 'Meetings', 'can_view'));
-           ?>
-           <li class="nav-header<?= $canViewMeetings ? '' : ' d-none' ?>">Meetings</li>
-           <li class="nav-item<?= $canViewMeetings ? '' : ' d-none' ?>">
+           <li class="nav-header<?= _sideHide(!$_canMeetings) ?>">Meetings</li>
+           <li class="nav-item<?= _sideHide(!$_canMeetings) ?>">
              <a href="#" class="nav-link"><i class="nav-icon fas fa-file-alt"></i><p>Meeting Minutes<i class="right fas fa-angle-left"></i></p></a>
              <ul class="nav nav-treeview">
                <li class="nav-item"><a href="./?page=create_meeting" class="nav-link"><i class="far fa-circle nav-icon"></i><p>New Meeting Minutes</p></a></li>
@@ -213,8 +233,8 @@
            </li>
 
            <!-- ROLE & USER MANAGEMENT -->
-           <li class="nav-header <?= ((($_SESSION['role'] ?? '') ==='member' || ($_SESSION['role'] ?? '') ==='manager' || ($_SESSION['role'] ?? '') ==='loan comitee' || ($_SESSION['role'] ?? '') ==='chairman') && (($_SESSION['userlevel'] ?? '') ==='branch' || ($_SESSION['userlevel'] ?? '') ==='HQ')) ? ' d-none' : '' ?>">Administration</li>
-           <li class="nav-item <?= ((($_SESSION['role'] ?? '') ==='member' || ($_SESSION['role'] ?? '') ==='manager' || ($_SESSION['role'] ?? '') ==='loan comitee' || ($_SESSION['role'] ?? '') ==='chairman') && (($_SESSION['userlevel'] ?? '') ==='branch' || ($_SESSION['userlevel'] ?? '') ==='HQ')) ? ' d-none' : '' ?>">
+           <li class="nav-header<?= _sideHide(!$_canAdmin) ?>">Administration</li>
+           <li class="nav-item<?= _sideHide(!$_canAdmin) ?>">
              <a href="#" class="nav-link"><i class="nav-icon fas fa-users-cog"></i><p>Role Management<i class="right fas fa-angle-left"></i></p></a>
              <ul class="nav nav-treeview">
                <li class="nav-item"><a href="./?page=manage_roles" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Manage Roles</p></a></li>
@@ -225,8 +245,8 @@
            </li>
 
            <!-- UTILITY MENU -->
-           <li class="nav-header <?= ((($_SESSION['role'] ?? '') ==='member' || ($_SESSION['role'] ?? '') ==='manager' || ($_SESSION['role'] ?? '') ==='loan comitee' || ($_SESSION['role'] ?? '') ==='chairman') && (($_SESSION['userlevel'] ?? '') ==='branch' || ($_SESSION['userlevel'] ?? '') ==='HQ')) ? ' d-none' : '' ?>">Utility Menu</li>
-           <li class="nav-item <?= ((($_SESSION['role'] ?? '') ==='member' || ($_SESSION['role'] ?? '') ==='manager' || ($_SESSION['role'] ?? '') ==='loan comitee' || ($_SESSION['role'] ?? '') ==='chairman') && (($_SESSION['userlevel'] ?? '') ==='branch' || ($_SESSION['userlevel'] ?? '') ==='HQ')) ? ' d-none' : '' ?>">
+           <li class="nav-header<?= _sideHide(!$_canAdmin) ?>">Utility Menu</li>
+           <li class="nav-item<?= _sideHide(!$_canAdmin) ?>">
             <a href="#" class="nav-link">
               <i class="nav-icon fas fa-tachometer-alt"></i>
               <p>Branch Management<i class="right fas fa-angle-left"></i></p>

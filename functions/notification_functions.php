@@ -33,9 +33,10 @@ function createSystemNotification(mysqli $conn, int $userId, string $title, stri
     if (!$stmt) return false;
     $stmt->bind_param("issss", $userId, $type, $title, $message, $link);
     $result = $stmt->execute();
+    $stmt->close(); // close immediately — prevents hitting max_prepared_stmt_count
     
     if ($result) {
-        // Also send email/SMS based on user preferences
+        // Send email/SMS via user preferences (does NOT call createSystemNotification again)
         sendUserNotification($conn, $userId, $title, $message, $type, $link);
     }
     
@@ -64,6 +65,7 @@ function countUnreadNotifications(mysqli $conn, int $userId) {
     $stmt->bind_param("i", $userId);
     $stmt->execute();
     $row = stmt_fetch_assoc($stmt);
+    $stmt->close();
     return $row['cnt'] ?? 0;
 }
 
@@ -77,6 +79,7 @@ function countPendingGrantorRequests(mysqli $conn, int $userId) {
     $stmt->bind_param("i", $userId);
     $stmt->execute();
     $row = stmt_fetch_assoc($stmt);
+    $stmt->close();
     return $row['cnt'] ?? 0;
 }
 

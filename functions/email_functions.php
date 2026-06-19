@@ -111,39 +111,48 @@ function sendUserNotification(mysqli $conn, $userId, $title, $message, $type = '
 }
 
 /**
- * Get user notification settings
+ * Get user notification settings.
+ * Returns existing row, or creates defaults from users table and returns them.
+ * Uses separate prepared statements to avoid reusing a consumed result set.
  */
 function getUserNotificationSettings(mysqli $conn, $userId) {
+    // First attempt: fetch existing settings
     $sql = "SELECT * FROM notification_settings WHERE user_id = ?";
     $stmt = $conn->prepare($sql);
     if (!$stmt) return null;
     $stmt->bind_param("i", $userId);
     $stmt->execute();
     $result = stmt_fetch_assoc($stmt);
-    
-    // If no settings exist, create default
-    if (!$result) {
-        // Fetch user info for defaults
-        $userSql = "SELECT email, phone FROM users WHERE id = ?";
-        $userStmt = $conn->prepare($userSql);
-        if ($userStmt) {
-            $userStmt->bind_param("i", $userId);
-            $userStmt->execute();
-            $user = stmt_fetch_assoc($userStmt);
-            
-            $insert = $conn->prepare("INSERT INTO notification_settings (user_id, email_address, phone_number) VALUES (?, ?, ?)");
-            if ($insert) {
-                $insert->bind_param("iss", $userId, $user['email'], $user['phone']);
-                $insert->execute();
+    $stmt->close();  // always close before reusing conn for another prepare
+
+    if ($result) return $result;
+
+    // No settings row yet — seed defaults from users table
+    $userStmt = $conn->prepare("SELECT email, phone FROM users WHERE id = ?");
+    if ($userStmt) {
+        $userStmt->bind_param("i", $userId);
+        $userStmt->execute();
+        $user = stmt_fetch_assoc($userStmt);
+        $userStmt->close();
+
+        if ($user) {
+            $ins = $conn->prepare("INSERT IGNORE INTO notification_settings (user_id, email_address, phone_number) VALUES (?, ?, ?)");
+            if ($ins) {
+                $ins->bind_param("iss", $userId, $user['email'], $user['phone']);
+                $ins->execute();
+                $ins->close();
             }
         }
-        
-        // Refetch
-        $stmt->execute();
-        $result = stmt_fetch_assoc($stmt);
     }
-    
-    return $result;
+
+    // Fetch again with a fresh statement
+    $stmt2 = $conn->prepare("SELECT * FROM notification_settings WHERE user_id = ?");
+    if (!$stmt2) return null;
+    $stmt2->bind_param("i", $userId);
+    $stmt2->execute();
+    $result2 = stmt_fetch_assoc($stmt2);
+    $stmt2->close();
+    return $result2;
 }
 
 /**
