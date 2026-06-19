@@ -107,24 +107,26 @@ $sql = "SELECT users.*, branches.name AS branch_name
             if($conn === false){
                 exit();
             }
-            // Use members.branch_id as the authoritative branch source.
-            // users.branch_id is often stale/wrong for historical records because
-            // update_member never updated it — only members.branch_id was kept current.
-            // Joining through members ensures ALL branch members appear in the grantor list.
-            $sql = "SELECT users.*, branches.name as branch_name
+            // Join through members.branch_id (the authoritative branch column).
+            // users.branch_id is unreliable — it was never updated by update_member.
+            // LEFT JOIN ensures users without a members row are excluded (INNER would also work,
+            // but LEFT + WHERE members.branch_id gives a clearer intent).
+            $sql = "SELECT DISTINCT users.id, users.name, users.email, users.role,
+                           users.type, users.level, users.status,
+                           branches.name as branch_name
                     FROM users
                     INNER JOIN members ON members.user_id = users.id
-                    INNER JOIN branches ON branches.id = members.branch_id
-                    WHERE members.branch_id = ?
-                      AND members.deleted_at IS NULL
-                      AND users.deleted_at IS NULL
+                                      AND members.deleted_at IS NULL
+                                      AND members.branch_id = ?
+                    INNER JOIN branches ON branches.id = ?
+                    WHERE users.deleted_at IS NULL
                       AND users.status = 'approved'
                     ORDER BY users.name ASC;";
             $stmt = $conn->prepare($sql);
             if($stmt === false){
                 exit();
             }
-            $stmt->bind_param("i", $branchId);
+            $stmt->bind_param("ii", $branchId, $branchId);
             return ($stmt->execute()) ? stmt_fetch_all($stmt) : $stmt->error;
         }
         

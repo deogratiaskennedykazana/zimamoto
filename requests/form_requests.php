@@ -152,17 +152,13 @@ if(isset($_GET['get_min_sub_by_branch_id'])){
  
 }
                   if(isset($_GET['get_members_by_branch_id_json'])){
-            // Re-fetch the branch_id from DB using userId so we always get the
-            // current branch even if $_SESSION['branchid'] is stale after an admin
-            // changed the member's branch without them re-logging in.
             $userId   = isset($_GET['userId'])  ? (int) $_GET['userId']  : 0;
             $branchId = isset($_GET['branchId']) ? (int) $_GET['branchId'] : 0;
 
+            // Always resolve branch from members table (authoritative source)
             if ($userId > 0) {
-                // Use members.branch_id as the authoritative source — it is kept
-                // more up-to-date than users.branch_id on this installation.
                 $branchStmt = $conn->prepare(
-                    "SELECT members.branch_id FROM members WHERE members.user_id = ? AND members.deleted_at IS NULL LIMIT 1"
+                    "SELECT branch_id FROM members WHERE user_id = ? AND deleted_at IS NULL LIMIT 1"
                 );
                 if ($branchStmt) {
                     $branchStmt->bind_param("i", $userId);
@@ -175,19 +171,37 @@ if(isset($_GET['get_min_sub_by_branch_id'])){
                 }
             }
 
-                $data = array();
-                $members = selectUsersByBranchId($conn, $branchId);
-                if($members && is_array($members)){
-                    foreach($members as $member){
-                        // Exclude the requesting member themselves from the grantor list
-                        if ($userId > 0 && (int)$member['id'] === $userId) continue;
-                        $data[] = [
-                            'id'   => $member['id'],
-                            'name' => $member['name'],
-                        ];
-                    }
+            // DEBUG: expose raw diagnostics when ?debug=1 is added to the URL
+            if (isset($_GET['debug'])) {
+                $diagSql = "SELECT u.id, u.name, u.status, u.deleted_at AS u_deleted,
+                                   m.branch_id AS m_branch, m.deleted_at AS m_deleted
+                            FROM users u
+                            LEFT JOIN members m ON m.user_id = u.id
+                            WHERE m.branch_id = $branchId
+                            ORDER BY u.name";
+                $diagResult = $conn->query($diagSql);
+                $diagData   = $diagResult ? $diagResult->fetch_all(MYSQLI_ASSOC) : [];
+                echo json_encode([
+                    'resolved_branch_id' => $branchId,
+                    'requesting_user_id' => $userId,
+                    'raw_rows'           => $diagData,
+                    'last_error'         => $conn->error,
+                ]);
+                exit;
+            }
+
+            $data    = [];
+            $members = selectUsersByBranchId($conn, $branchId);
+            if ($members && is_array($members)) {
+                foreach ($members as $member) {
+                    if ($userId > 0 && (int)$member['id'] === $userId) continue;
+                    $data[] = [
+                        'id'   => $member['id'],
+                        'name' => $member['name'],
+                    ];
                 }
-                echo json_encode($data);
+            }
+            echo json_encode($data);
           }
            if(isset($_GET['get_loan_capacity_by_user_id'])){
             $userId = (int) $_GET['userId'];
