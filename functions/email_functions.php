@@ -80,12 +80,10 @@ function processNotificationQueue(mysqli $conn, $limit = 10) {
 }
 
 /**
- * Send notification via all enabled channels for a user
+ * Send notification via email/SMS channels for a user (does NOT create in-app notification).
+ * Called by createSystemNotification() after the DB row is inserted.
  */
 function sendUserNotification(mysqli $conn, $userId, $title, $message, $type = 'info', $link = null) {
-    // Always create in-app notification
-    $notifResult = createSystemNotification($conn, $userId, $title, $message, $type, $link);
-    
     // Check user notification preferences
     $prefs = getUserNotificationSettings($conn, $userId);
     
@@ -95,7 +93,8 @@ function sendUserNotification(mysqli $conn, $userId, $title, $message, $type = '
             $subject = APP_NAME . ' - ' . $title;
             $htmlMessage = "<h3>{$title}</h3><p>{$message}</p>";
             if ($link) {
-                $htmlMessage .= "<p><a href='{$link}'>View Details</a></p>";
+                $absoluteLink = (str_starts_with($link, 'http') ? $link : APP_URL . '/' . ltrim($link, './'));
+                $htmlMessage .= "<p><a href='{$absoluteLink}' style='background:#007bff;color:#fff;padding:8px 16px;border-radius:4px;text-decoration:none;'>View Details</a></p>";
             }
             queueNotification($conn, $userId, 'email', $subject, $htmlMessage, $prefs['email_address']);
         }
@@ -103,14 +102,12 @@ function sendUserNotification(mysqli $conn, $userId, $title, $message, $type = '
         // Send SMS if enabled
         if ($prefs['notify_sms'] && !empty($prefs['phone_number'])) {
             $smsText = APP_NAME . ": {$title} - {$message}";
-            if ($link) {
-                $smsText .= " - " . APP_URL;
-            }
+            if ($link) $smsText .= ' ' . APP_URL;
             queueNotification($conn, $userId, 'sms', null, $smsText, $prefs['phone_number']);
         }
     }
     
-    return $notifResult;
+    return true;
 }
 
 /**

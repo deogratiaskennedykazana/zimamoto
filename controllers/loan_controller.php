@@ -75,7 +75,6 @@
         
          if(isset($_POST['apply_loan'])){ 
 
-                      echo "<pre>FILES DEBUG: "; print_r($_FILES); echo "</pre>";
                 // Create upload directories if they don't exist
                 if (!file_exists('uploads/salary_slips/')) {
                     mkdir('uploads/salary_slips/', 0755, true);
@@ -180,7 +179,7 @@
                         exit;
                     }
                     
-                    echo "<script> alert('Loan application submitted successfully!'); window.history.back();</script>";
+                    echo "<script> alert('Loan application submitted successfully! Your guarantors have been notified by email.'); window.location.href='../?page=my_loan';</script>";
                     
                 } else {
                     echo "<script> alert('Failed to create loan: $newLoan'); window.history.back();</script>";
