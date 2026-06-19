@@ -143,6 +143,9 @@
         </div>
       </form>
       <p class="mb-1">
+        <a href="./forgot_password.php"><i class="fas fa-key mr-1"></i>Forgot your password?</a>
+      </p>
+      <p class="mb-0">
         <a href="./signup.php">Don't have an account? Sign up as a member</a>
       </p>
     </div>

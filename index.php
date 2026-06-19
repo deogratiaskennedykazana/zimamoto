@@ -775,27 +775,58 @@
     <?php
       $myid = $_SESSION['userid'];
       $user = $conn->query("SELECT * FROM users WHERE id = $myid")->fetch_assoc();
-        if (isset($_POST['restp'])) {
-                $uid = $_POST['userid'];
-                $newpass = password_hash($_POST['newpass'], PASSWORD_DEFAULT);
-                $conn->query("UPDATE users SET password='$newpass' WHERE id=$uid");
-                echo "<script>alert('SUCCESS'); window.location.href='./?page=logout'</script>"; 
+    if (isset($_POST['restp'])) {
+                $uid            = (int) $_POST['userid'];
+                $currentPassword = $_POST['current_password'] ?? '';
+                $newpass        = $_POST['newpass'] ?? '';
+                $confirm        = $_POST['confirmpass'] ?? '';
+
+                // Verify current password first
+                $chk = $conn->prepare("SELECT password FROM users WHERE id = ?");
+                $chk->bind_param("i", $uid);
+                $chk->execute();
+                $chkRow = stmt_fetch_assoc($chk);
+                $chk->close();
+
+                if (!$chkRow || !password_verify($currentPassword, $chkRow['password'])) {
+                    echo "<script>alert('Current password is incorrect.');</script>";
+                } elseif (strlen($newpass) < 8) {
+                    echo "<script>alert('New password must be at least 8 characters.');</script>";
+                } elseif ($newpass !== $confirm) {
+                    echo "<script>alert('Passwords do not match.');</script>";
+                } else {
+                    $hashed = password_hash($newpass, PASSWORD_DEFAULT);
+                    $updPw  = $conn->prepare("UPDATE users SET password = ?, updated_at = NOW() WHERE id = ?");
+                    $updPw->bind_param("si", $hashed, $uid);
+                    if ($updPw->execute()) {
+                        $updPw->close();
+                        echo "<script>alert('Password changed successfully. Please log in again.'); window.location.href='./?page=logout';</script>";
+                    } else {
+                        $updPw->close();
+                        echo "<script>alert('Failed to update password. Please try again.');</script>";
+                    }
+                }
               }
         
         
               if (isset($_POST['update_info'])) {
-                $id = $_POST['id'];
-                $name = $_POST['names'];
-                //$phone = $_POST['phone'];
-                $email = $_POST['email'];
-               
-                $conn->query("UPDATE users SET 
-                  name='$name',
-                  
-                  email='$email'
-                  WHERE id=$id
-                ");
-               echo "<script>alert('SUCCESS'); window.location.href='./?page=user_profile'</script>"; 
+                $id    = (int) $_POST['id'];
+                $name  = htmlspecialchars(trim($_POST['names'] ?? ''));
+                $email = trim($_POST['email'] ?? '');
+
+                if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                    echo "<script>alert('Please enter a valid email address.');</script>";
+                } else {
+                    $upd = $conn->prepare("UPDATE users SET name = ?, email = ?, updated_at = NOW() WHERE id = ?");
+                    $upd->bind_param("ssi", $name, $email, $id);
+                    if ($upd->execute()) {
+                        $upd->close();
+                        echo "<script>alert('Profile updated successfully.'); window.location.href='./?page=user_profile';</script>";
+                    } else {
+                        $upd->close();
+                        echo "<script>alert('Failed to update profile. Please try again.');</script>";
+                    }
+                }
                 $user = $conn->query("SELECT * FROM users WHERE id = $myid")->fetch_assoc(); // refresh
          }
     ?>
@@ -829,18 +860,47 @@
     <hr class="my-4">
 
     <!-- Reset Password Section -->
-    <h5 class="mt-4">Reset Password</h5>
-    <form method="post" onsubmit="return confirm('Are you sure you want to reset your password to: ' + document.getElementsByName('newpass')[0].value + ' ?')">
+    <h5 class="mt-4">Change Password</h5>
+    <form method="post" id="changePasswordForm">
       <input type="hidden" name="userid" value="<?= $user['id'] ?>">
       <div class="row">
         <div class="form-group col-md-8">
-          <input type="password" name="newpass" class="form-control" placeholder="New Password" required>
+          <label>Current Password</label>
+          <input type="password" name="current_password" class="form-control" placeholder="Enter current password" required id="current_pw">
         </div>
-        <div class="form-group col-md-4">
-          <button type="submit" name="restp" class="btn btn-info w-100">Reset Password</button>
+      </div>
+      <div class="row">
+        <div class="form-group col-md-8">
+          <label>New Password <small class="text-muted">(min 8 characters)</small></label>
+          <input type="password" name="newpass" class="form-control" placeholder="New password" required minlength="8" id="new_pw">
+        </div>
+      </div>
+      <div class="row">
+        <div class="form-group col-md-8">
+          <label>Confirm New Password</label>
+          <input type="password" name="confirmpass" class="form-control" placeholder="Repeat new password" required minlength="8" id="confirm_pw">
+          <small id="pwMatchMsg" class="text-muted"></small>
+        </div>
+        <div class="form-group col-md-4 d-flex align-items-end">
+          <button type="submit" name="restp" class="btn btn-info w-100">Change Password</button>
         </div>
       </div>
     </form>
+    <script>
+    document.getElementById('confirm_pw').addEventListener('input', function() {
+      var m = document.getElementById('pwMatchMsg');
+      if (this.value === document.getElementById('new_pw').value) {
+        m.textContent = '✔ Passwords match'; m.className = 'text-success';
+      } else {
+        m.textContent = '✘ Passwords do not match'; m.className = 'text-danger';
+      }
+    });
+    document.getElementById('changePasswordForm').addEventListener('submit', function(e) {
+      var np = document.getElementById('new_pw').value;
+      var cp = document.getElementById('confirm_pw').value;
+      if (np !== cp) { e.preventDefault(); alert('Passwords do not match.'); }
+    });
+    </script>
   </div>
 </div>
 
