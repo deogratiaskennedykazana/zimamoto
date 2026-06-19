@@ -107,7 +107,8 @@ $sql = "SELECT users.*, branches.name AS branch_name
             if($conn === false){
                 exit();
             }
-            $sql = "SELECT users.*, branches.name as branch_name FROM `users`  INNER JOIN branches ON branches.id = users.branch_id WHERE users.branch_id = ? AND users.deleted_at IS NULL;";
+            // Only return approved members — pending/inactive users must not appear as grantors
+            $sql = "SELECT users.*, branches.name as branch_name FROM `users` INNER JOIN branches ON branches.id = users.branch_id WHERE users.branch_id = ? AND users.deleted_at IS NULL AND users.status = 'approved';";
             $stmt = $conn->prepare($sql);
             if($stmt === false){
                 exit();

@@ -152,15 +152,27 @@ if(isset($_GET['get_min_sub_by_branch_id'])){
  
 }
                   if(isset($_GET['get_members_by_branch_id_json'])){
-            $branchId = (int) $_GET['branchId'];
-            // print_r($_GET);
+            // Re-fetch the branch_id from DB using userId so we always get the
+            // current branch even if $_SESSION['branchid'] is stale after an admin
+            // changed the member's branch without them re-logging in.
+            $userId   = isset($_GET['userId'])  ? (int) $_GET['userId']  : 0;
+            $branchId = isset($_GET['branchId']) ? (int) $_GET['branchId'] : 0;
+
+            if ($userId > 0) {
+                $currentUser = selectUserById($conn, $userId);
+                if ($currentUser && is_array($currentUser) && !empty($currentUser['branch_id'])) {
+                    $branchId = (int) $currentUser['branch_id']; // always use fresh DB value
+                }
+            }
 
                 $data = array();
-                $members = selectUsersByBranchId ($conn, $branchId);
+                $members = selectUsersByBranchId($conn, $branchId);
                 if($members && is_array($members)){
                     foreach($members as $member){
-                        $data[] =[
-                            'id' => $member['id'],
+                        // Exclude the requesting member themselves from the grantor list
+                        if ($userId > 0 && (int)$member['id'] === $userId) continue;
+                        $data[] = [
+                            'id'   => $member['id'],
                             'name' => $member['name'],
                         ];
                     }

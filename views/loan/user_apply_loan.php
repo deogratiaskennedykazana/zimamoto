@@ -110,14 +110,16 @@
         var userId   = <?= (int)$_SESSION['userid'] ?>;
 
         // Populate all .user_id selects (grantor dropdowns) with members from this branch
-        if(branchId){
-            $.get('./requests/form_requests.php', { get_members_by_branch_id_json: '', branchId: branchId }, function(data){
+        // Pass userId too so the server can re-verify the current branch from DB
+        // (guards against stale session branchid after an admin changes the member's branch)
+        if(branchId || userId){
+            $.get('./requests/form_requests.php', { get_members_by_branch_id_json: '', branchId: branchId, userId: userId }, function(data){
                 var members = typeof data === 'string' ? JSON.parse(data) : data;
                 $('.user_id').each(function(){
                     var sel = $(this);
                     sel.empty().append('<option value="">Select Grantor</option>');
                     $.each(members, function(i, m){
-                        if(m.id != userId){ // exclude self
+                        if(m.id != userId){ // exclude self (also done server-side)
                             sel.append('<option value="'+m.id+'">'+m.name+'</option>');
                         }
                     });
