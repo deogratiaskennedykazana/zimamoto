@@ -9,6 +9,7 @@
     require_once  "../functions/min_sub_functions.php";
     require_once "../functions/grantor_functions.php";
     require_once "../functions/notification_functions.php";
+    require_once "../functions/user_function.php"; // FIX: required by grantor_functions.php's selectUserById()
     require_once "../configs.php";
     $conn = openConn();
     if($_SERVER['REQUEST_METHOD'] === 'POST'){

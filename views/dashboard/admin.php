@@ -20,9 +20,9 @@ $r = $conn->query("SELECT COUNT(*) AS c FROM branches"); if($r){ $totalBranches 
 
 // ---- Loans by month (last 12 months) ----
 $loanMonths = []; $loanCounts = []; $loanAmounts = [];
-$sql = "SELECT DATE_FORMAT(created_at,'%b %Y') AS mon, COUNT(*) AS cnt, COALESCE(SUM(amount),0) AS total
+$sql = "SELECT DATE_FORMAT(created_at,'%b %Y') AS mon, COUNT(*) AS cnt, COALESCE(SUM(principle),0) AS total
         FROM loans
-        WHERE created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+        WHERE created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH) AND deleted_at IS NULL
         GROUP BY DATE_FORMAT(created_at,'%Y-%m')
         ORDER BY MIN(created_at) ASC";
 $r = $conn->query($sql);
@@ -50,13 +50,13 @@ if($r){ while($row=$r->fetch_assoc()){ $budgetLabels[]=ucfirst($row['status']); 
 
 // ---- Top 5 branches by member count ----
 $branchNames=[]; $branchMembers=[];
-$sql = "SELECT b.branch_name, COUNT(m.id) AS cnt FROM branches b LEFT JOIN members m ON m.branch_id=b.id AND m.deleted_at IS NULL GROUP BY b.id ORDER BY cnt DESC LIMIT 5";
+$sql = "SELECT b.name AS branch_name, COUNT(m.id) AS cnt FROM branches b LEFT JOIN members m ON m.branch_id=b.id AND m.deleted_at IS NULL GROUP BY b.id ORDER BY cnt DESC LIMIT 5";
 $r = $conn->query($sql);
 if($r){ while($row=$r->fetch_assoc()){ $branchNames[]=$row['branch_name']; $branchMembers[]=$row['cnt']; } }
 
 // ---- Recent Loans ----
 $recentLoans = [];
-$r = $conn->query("SELECT l.id, m.name AS member_name, l.amount, l.status, l.created_at FROM loans l LEFT JOIN members m ON l.member_id=m.id ORDER BY l.created_at DESC LIMIT 8");
+$r = $conn->query("SELECT l.id, u.name AS member_name, l.principle AS amount, l.status, l.created_at FROM loans l LEFT JOIN users u ON l.user_id=u.id WHERE l.deleted_at IS NULL ORDER BY l.created_at DESC LIMIT 8");
 if($r){ while($row=$r->fetch_assoc()) $recentLoans[]=$row; }
 ?>
 

@@ -38,20 +38,23 @@
         if(isset($_POST['save_permissions'])){
             $role_id = (int) $_POST['role_id'];
             $modules = [];
-            $module_names = $_POST['module'] ?? [];
-            $can_view = $_POST['can_view'] ?? [];
-            $can_create = $_POST['can_create'] ?? [];
-            $can_edit = $_POST['can_edit'] ?? [];
-            $can_delete = $_POST['can_delete'] ?? [];
+            $module_names = $_POST['module'] ?? [];   // keyed by explicit index: [0=>'Dashboard', 1=>'Members', ...]
+            $can_view    = $_POST['can_view']    ?? [];
+            $can_create  = $_POST['can_create']  ?? [];
+            $can_edit    = $_POST['can_edit']    ?? [];
+            $can_delete  = $_POST['can_delete']  ?? [];
             $can_approve = $_POST['can_approve'] ?? [];
 
-            for($i = 0; $i < count($module_names); $i++){
-                $modules[$module_names[$i]] = [
-                    'can_view' => isset($can_view[$i]) ? 1 : 0,
-                    'can_create' => isset($can_create[$i]) ? 1 : 0,
-                    'can_edit' => isset($can_edit[$i]) ? 1 : 0,
-                    'can_delete' => isset($can_delete[$i]) ? 1 : 0,
-                    'can_approve' => isset($can_approve[$i]) ? 1 : 0,
+            // Use the explicit numeric index from each module entry so that
+            // unchecked checkboxes (which browsers don't submit) are correctly
+            // treated as 0 rather than shifting array positions.
+            foreach($module_names as $idx => $moduleName){
+                $modules[$moduleName] = [
+                    'can_view'    => isset($can_view[$idx])    ? 1 : 0,
+                    'can_create'  => isset($can_create[$idx])  ? 1 : 0,
+                    'can_edit'    => isset($can_edit[$idx])    ? 1 : 0,
+                    'can_delete'  => isset($can_delete[$idx])  ? 1 : 0,
+                    'can_approve' => isset($can_approve[$idx]) ? 1 : 0,
                 ];
             }
 

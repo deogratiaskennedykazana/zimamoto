@@ -195,19 +195,22 @@ if(isset($_GET['get_min_sub_by_branch_id'])){
 
             $modules = ['Dashboard', 'Members', 'Loans', 'Budget', 'Meetings', 'Reports', 'Settings', 'Users', 'Roles'];
             ?>
-            <table class="table table-bordered">
+            <table class="table table-bordered table-sm">
                 <thead><tr><th>Module</th><th>View</th><th>Create</th><th>Edit</th><th>Delete</th><th>Approve</th></tr></thead>
                 <tbody>
-                    <?php foreach($modules as $m): 
+                    <?php foreach($modules as $idx => $m): 
                         $e = $existingMap[$m] ?? [];
                     ?>
                     <tr>
-                        <td><input type="hidden" name="module[]" value="<?= $m ?>"><strong><?= $m ?></strong></td>
-                        <td><input type="checkbox" name="can_view[]" value="1" <?= ($e['can_view'] ?? 0) ? 'checked' : '' ?>></td>
-                        <td><input type="checkbox" name="can_create[]" value="1" <?= ($e['can_create'] ?? 0) ? 'checked' : '' ?>></td>
-                        <td><input type="checkbox" name="can_edit[]" value="1" <?= ($e['can_edit'] ?? 0) ? 'checked' : '' ?>></td>
-                        <td><input type="checkbox" name="can_delete[]" value="1" <?= ($e['can_delete'] ?? 0) ? 'checked' : '' ?>></td>
-                        <td><input type="checkbox" name="can_approve[]" value="1" <?= ($e['can_approve'] ?? 0) ? 'checked' : '' ?>></td>
+                        <td>
+                            <input type="hidden" name="module[<?= $idx ?>]" value="<?= $m ?>">
+                            <strong><?= $m ?></strong>
+                        </td>
+                        <td class="text-center"><input type="checkbox" name="can_view[<?= $idx ?>]" value="1" <?= ($e['can_view'] ?? 0) ? 'checked' : '' ?>></td>
+                        <td class="text-center"><input type="checkbox" name="can_create[<?= $idx ?>]" value="1" <?= ($e['can_create'] ?? 0) ? 'checked' : '' ?>></td>
+                        <td class="text-center"><input type="checkbox" name="can_edit[<?= $idx ?>]" value="1" <?= ($e['can_edit'] ?? 0) ? 'checked' : '' ?>></td>
+                        <td class="text-center"><input type="checkbox" name="can_delete[<?= $idx ?>]" value="1" <?= ($e['can_delete'] ?? 0) ? 'checked' : '' ?>></td>
+                        <td class="text-center"><input type="checkbox" name="can_approve[<?= $idx ?>]" value="1" <?= ($e['can_approve'] ?? 0) ? 'checked' : '' ?>></td>
                     </tr>
                     <?php endforeach; ?>
                 </tbody>

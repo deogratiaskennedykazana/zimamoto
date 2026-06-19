@@ -64,10 +64,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['signup'])) {
         if (is_numeric($newUserId) && $newUserId > 0) {
             $reg_no      = 'PENDING-' . $newUserId;
             $district_id = 1;
+
+            // Optional document uploads — failures here must not block registration
+            $photoFile  = null;
+            $idCardFile = null;
+            if (isset($_FILES['photo_file'])) {
+                $result = handleOptionalMemberUpload($_FILES['photo_file'], 'member_photos', 'photo');
+                $photoFile = ($result === false) ? null : $result;
+            }
+            if (isset($_FILES['id_card_file'])) {
+                $result = handleOptionalMemberUpload($_FILES['id_card_file'], 'member_ids', 'idcard');
+                $idCardFile = ($result === false) ? null : $result;
+            }
+
             registerMember(
                 $conn, $newUserId, $phone, $address,
                 $reg_no, $birthdate ?: '1990-01-01',
-                $district_id, $branch_id, $gender ?: 'other', $nida, ''
+                $district_id, $branch_id, $gender ?: 'other', $nida, '',
+                $photoFile, $idCardFile
             );
 
             // Notify admins
@@ -268,7 +282,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['skip_mfa'])) {
         </div>
       <?php endif; ?>
 
-      <form action="./signup.php" method="post" class="was-validated">
+      <form action="./signup.php" method="post" enctype="multipart/form-data" class="was-validated">
         <div class="card-body">
 
           <div class="form-group">
@@ -339,6 +353,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['skip_mfa'])) {
             <label>Address</label>
             <input type="text" name="address" class="form-control"
                    value="<?= htmlspecialchars($_POST['address'] ?? '') ?>">
+          </div>
+
+          <hr>
+
+          <div class="form-group">
+            <label>Upload Your Photo / Passport Picture <span class="text-muted">(optional)</span></label>
+            <input type="file" name="photo_file" class="form-control" accept=".jpg,.jpeg,.png,.pdf">
+            <small class="text-muted">JPG, PNG or PDF. You may also add this later from your profile.</small>
+          </div>
+
+          <div class="form-group">
+            <label>Upload Your ID Card / NIDA Card <span class="text-muted">(optional)</span></label>
+            <input type="file" name="id_card_file" class="form-control" accept=".jpg,.jpeg,.png,.pdf">
+            <small class="text-muted">JPG, PNG or PDF. You may also add this later from your profile.</small>
           </div>
 
           <hr>

@@ -141,13 +141,23 @@
               <li class="nav-item <?= ((($_SESSION['role'] ?? '') ==='member' || ($_SESSION['role'] ?? '') ==='manager' || ($_SESSION['role'] ?? '') ==='loan comitee' || ($_SESSION['role'] ?? '') ==='chairman') && (($_SESSION['userlevel'] ?? '') ==='branch' || ($_SESSION['userlevel'] ?? '') ==='HQ')) ? ' d-none' : '' ?>">
                 <a href="./?page=Pending_loan_list_form" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Pending Loan List</p></a>
               </li>
+             <!-- Member self-service loan link -->
+              <?php if(($_SESSION['role'] ?? '') === 'member'): ?>
+              <li class="nav-item">
+                <a href="./?page=apply_user_loan" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Apply for Loan</p></a>
+              </li>
+              <?php endif; ?>
               <li class="nav-item"><a href="./?page=my_loan" class="nav-link"><i class="far fa-circle nav-icon"></i><p>My Loan</p></a></li>
             </ul>
           </li>
 
            <!-- BUDGET MANAGEMENT MENU -->
-           <li class="nav-header">Budget Management</li>
-           <li class="nav-item">
+           <?php
+           $canViewBudget = (($_SESSION['role'] ?? '') !== 'member' ||
+               userHasPermission($conn, (int)$_SESSION['userid'], 'Budget', 'can_view'));
+           ?>
+           <li class="nav-header<?= $canViewBudget ? '' : ' d-none' ?>">Budget Management</li>
+           <li class="nav-item<?= $canViewBudget ? '' : ' d-none' ?>">
              <a href="#" class="nav-link"><i class="nav-icon fas fa-chart-pie"></i><p>Budget<i class="right fas fa-angle-left"></i></p></a>
              <ul class="nav nav-treeview">
                <li class="nav-item"><a href="./?page=create_budget" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Create Budget</p></a></li>
@@ -156,8 +166,12 @@
            </li>
 
            <!-- MEETING MINUTES MENU -->
-           <li class="nav-header">Meetings</li>
-           <li class="nav-item">
+           <?php
+           $canViewMeetings = (($_SESSION['role'] ?? '') !== 'member' ||
+               userHasPermission($conn, (int)$_SESSION['userid'], 'Meetings', 'can_view'));
+           ?>
+           <li class="nav-header<?= $canViewMeetings ? '' : ' d-none' ?>">Meetings</li>
+           <li class="nav-item<?= $canViewMeetings ? '' : ' d-none' ?>">
              <a href="#" class="nav-link"><i class="nav-icon fas fa-file-alt"></i><p>Meeting Minutes<i class="right fas fa-angle-left"></i></p></a>
              <ul class="nav nav-treeview">
                <li class="nav-item"><a href="./?page=create_meeting" class="nav-link"><i class="far fa-circle nav-icon"></i><p>New Meeting Minutes</p></a></li>

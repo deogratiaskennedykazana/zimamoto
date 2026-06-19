@@ -48,6 +48,7 @@ function getMemberBalance(mysqli $conn, int $userId, string $category): float {
 
 $shareBalance  = getMemberBalance($conn, $memberId, 'share');
 $savingBalance = getMemberBalance($conn, $memberId, 'saving');
+$amanaBalance  = getMemberBalance($conn, $memberId, 'amana');
 $loanBalance   = getMemberBalance($conn, $memberId, 'loan');
 
 // ---- Monthly contribution trend — column is `date_` not `transaction_date` ----
@@ -205,6 +206,7 @@ if ($isAdmin) {
                 <div class="mt-2 text-center" style="font-size:13px;">
                     <span class="mr-2"><span style="color:#007bff;">●</span> Shares: <strong>TZS <?= number_format($shareBalance, 0) ?></strong></span><br>
                     <span class="mr-2"><span style="color:#28a745;">●</span> Savings: <strong>TZS <?= number_format($savingBalance, 0) ?></strong></span><br>
+                    <span class="mr-2"><span style="color:#6f42c1;">●</span> Amana: <strong>TZS <?= number_format($amanaBalance, 0) ?></strong></span><br>
                     <span><span style="color:#ffc107;">●</span> Loan: <strong>TZS <?= number_format($loanBalance, 0) ?></strong></span>
                 </div>
             </div>
@@ -227,25 +229,45 @@ if ($isAdmin) {
             <div class="card-header">
                 <h6 class="card-title"><i class="fas fa-hand-holding-usd mr-1"></i>My Approved Loans (<?= $loanCount ?>)</h6>
                 <div class="card-tools">
-                    <a href="./?page=apply_loan" class="btn btn-sm btn-success"><i class="fas fa-plus mr-1"></i>Apply for Loan</a>
+                    <a href="./?page=apply_user_loan" class="btn btn-sm btn-success"><i class="fas fa-plus mr-1"></i>Apply for Loan</a>
                 </div>
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
                     <table class="table table-sm table-striped mb-0">
                         <thead><tr class="table-primary">
-                            <th>#</th><th>Type</th><th>Principle (TZS)</th><th>Interest (TZS)</th><th>Period</th><th>Date Approved</th><th></th>
+                            <th>#</th><th>Type</th><th>Principle (TZS)</th><th>Interest (TZS)</th><th>Period</th><th>Date Approved</th><th>Repayment Progress</th><th></th>
                         </tr></thead>
                         <tbody>
                         <?php if ($myLoans && is_array($myLoans) && count($myLoans)): ?>
-                            <?php foreach ($myLoans as $i => $loan): ?>
+                            <?php foreach ($myLoans as $i => $loan):
+                                // Calculate repayment progress from loan sub-account
+                                $loanSubId = null;
+                                $stmtLSub = $conn->prepare("SELECT id FROM min_subs WHERE user_id=? AND category='loan' AND deleted_at IS NULL LIMIT 1");
+                                if($stmtLSub){ $stmtLSub->bind_param('i',$memberId); $stmtLSub->execute(); $lsr=stmt_fetch_assoc($stmtLSub); $loanSubId=$lsr['id']??null; $stmtLSub->close(); }
+                                $repaid = 0;
+                                $principle = (float)($loan['principle'] ?? 0);
+                                if($loanSubId){
+                                    $lTxns = getMinTransactionByMinSubId($conn,(int)$loanSubId);
+                                    if(is_array($lTxns)) foreach($lTxns as $lt){
+                                        if((int)$lt['cr_account']==(int)$loanSubId) $repaid+=(float)$lt['amount'];
+                                    }
+                                }
+                                $pct = $principle > 0 ? min(100, round(($repaid/$principle)*100)) : 0;
+                            ?>
                             <tr>
                                 <td><?= $i + 1 ?></td>
                                 <td><?= htmlspecialchars($loan['product'] ?? '—') ?></td>
-                                <td><?= number_format($loan['principle'], 2) ?></td>
+                                <td><?= number_format($principle, 2) ?></td>
                                 <td><?= number_format($loan['interest_amount'] ?? 0, 2) ?></td>
                                 <td><?= $loan['period'] ?> mo</td>
                                 <td><?= $loan['approve_date'] ?? '—' ?></td>
+                                <td style="min-width:120px">
+                                    <div class="progress progress-sm">
+                                        <div class="progress-bar bg-<?= $pct>=100?'success':($pct>=50?'info':'warning') ?>" role="progressbar" style="width:<?= $pct ?>%"></div>
+                                    </div>
+                                    <small><?= number_format($repaid,0) ?> / <?= number_format($principle,0) ?> (<?= $pct ?>%)</small>
+                                </td>
                                 <td>
                                     <a href="./?page=view_loan_details&loan_id=<?= $loan['id'] ?>&user_id=<?= $loan['user_id'] ?>"
                                        class="btn btn-xs btn-outline-primary"><i class="fas fa-eye"></i></a>
@@ -253,7 +275,7 @@ if ($isAdmin) {
                             </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
-                            <tr><td colspan="7" class="text-center text-muted py-3">No approved loans found.</td></tr>
+                            <tr><td colspan="8" class="text-center text-muted py-3">No approved loans found.</td></tr>
                         <?php endif; ?>
                         </tbody>
                     </table>
@@ -329,8 +351,8 @@ if ($isAdmin) {
     new Chart(document.getElementById('myBalanceChart'), {
         type: 'doughnut',
         data: {
-            labels: ['Shares', 'Savings', 'Loan Balance'],
-            datasets: [{ data: [<?= $shareBalance ?>, <?= $savingBalance ?>, <?= $loanBalance ?>], backgroundColor: ['#007bff','#28a745','#ffc107'], borderWidth: 2 }]
+            labels: ['Shares', 'Savings', 'Amana', 'Loan Balance'],
+            datasets: [{ data: [<?= $shareBalance ?>, <?= $savingBalance ?>, <?= $amanaBalance ?>, <?= $loanBalance ?>], backgroundColor: ['#007bff','#28a745','#6f42c1','#ffc107'], borderWidth: 2 }]
         },
         options: { responsive: true, plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: ctx => ' TZS ' + ctx.parsed.toLocaleString() } } } }
     });

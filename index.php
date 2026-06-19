@@ -5,6 +5,18 @@
         echo "<script>window.location.href='./login.php';</script>";
         exit;
     }
+
+    // SECURITY FIX: Enforce MFA verification before granting access to any page.
+    // Previously this check was missing entirely, so a user who had a valid
+    // session (userid set) but had NOT completed MFA could browse straight to
+    // ./?page=... and bypass two-factor authentication completely.
+    // A user is only allowed past this point if:
+    //   - MFA was never required for them (mfa_required is not set), OR
+    //   - They have completed MFA verification (mfa_verified === true)
+    if (!empty($_SESSION['mfa_required']) && empty($_SESSION['mfa_verified'])) {
+        echo "<script>window.location.href='./mfa_verify.php';</script>";
+        exit;
+    }
    // print_r($_SESSION);
     
 ?>
@@ -202,7 +214,15 @@
                   <div class=" row">
                       <div class=" col-md-12 col-sm-12">
                         <?php
-                          include("./views/dashboard/member.php");
+                          // Route admin/staff to the admin dashboard, members to member dashboard
+                          $dashRole = strtolower($_SESSION['role'] ?? '');
+                          $dashLevel = strtolower($_SESSION['userlevel'] ?? '');
+                          $isMemberOnly = ($dashRole === 'member' && $dashLevel === 'branch');
+                          if ($isMemberOnly) {
+                              include("./views/dashboard/member.php");
+                          } else {
+                              include("./views/dashboard/admin.php");
+                          }
                         ?>
                       </div>
                       <div class="col-md-2 d-none d-sm-block"> 
@@ -1404,9 +1424,18 @@ case"process_general_loan_repayment_upload":
 
             // Budget Management
             case"create_budget":
+                // Permission gate: members need Budget→can_create
+                if(($_SESSION['role'] ?? '') === 'member' && !userHasPermission($conn, (int)$_SESSION['userid'], 'Budget', 'can_create')){
+                    echo '<div class="alert alert-danger m-3"><i class="fas fa-lock mr-1"></i>Access denied. You do not have permission to access Budget Management.</div>';
+                    break;
+                }
                 include("./views/budget/create_budget.php");
                 break;
             case"all_budgets":
+                if(($_SESSION['role'] ?? '') === 'member' && !userHasPermission($conn, (int)$_SESSION['userid'], 'Budget', 'can_view')){
+                    echo '<div class="alert alert-danger m-3"><i class="fas fa-lock mr-1"></i>Access denied. You do not have permission to view Budgets.</div>';
+                    break;
+                }
                 include("./views/budget/all_budget.php");
                 break;
             case"view_budget":
@@ -1426,9 +1455,17 @@ case"process_general_loan_repayment_upload":
 
             // Meeting Minutes
             case"create_meeting":
+                if(($_SESSION['role'] ?? '') === 'member' && !userHasPermission($conn, (int)$_SESSION['userid'], 'Meetings', 'can_create')){
+                    echo '<div class="alert alert-danger m-3"><i class="fas fa-lock mr-1"></i>Access denied. You do not have permission to create Meeting Minutes.</div>';
+                    break;
+                }
                 include("./views/meetings/create_meeting.php");
                 break;
             case"meeting_list":
+                if(($_SESSION['role'] ?? '') === 'member' && !userHasPermission($conn, (int)$_SESSION['userid'], 'Meetings', 'can_view')){
+                    echo '<div class="alert alert-danger m-3"><i class="fas fa-lock mr-1"></i>Access denied. You do not have permission to view Meetings.</div>';
+                    break;
+                }
                 include("./views/meetings/meeting_list.php");
                 break;
             case"view_meeting":
@@ -1441,6 +1478,11 @@ case"process_general_loan_repayment_upload":
             // Loan Advisor
             case"loan_adviser":
                 include("./views/loan/loan_adviser.php");
+                break;
+
+            // Member self-service loan application
+            case"apply_user_loan":
+                include("./views/loan/user_apply_loan.php");
                 break;
 
             // Role Management
