@@ -39,10 +39,11 @@ function sendGrantorRequest(mysqli $conn, int $loanId, int $grantorId, int $appl
     $loanPeriod    = $loan     ? (int)$loan['period'] : 0;
 
     // Build accept / reject URLs using the token
+    // APP_URL is already 'https://tellicerpsys.co.tz/zimamoto' — do NOT append /zimamoto/ again
     $baseUrl    = rtrim(APP_URL, '/');
-    $acceptUrl  = $baseUrl . '/zimamoto/controllers/grantor_controller.php?respond=' . urlencode($token) . '&status=accepted';
-    $rejectUrl  = $baseUrl . '/zimamoto/controllers/grantor_controller.php?respond=' . urlencode($token) . '&status=rejected';
-    $dashUrl    = $baseUrl . '/zimamoto/?page=my_grantor_requests';
+    $acceptUrl  = $baseUrl . '/controllers/grantor_controller.php?respond=' . urlencode($token) . '&status=accepted';
+    $rejectUrl  = $baseUrl . '/controllers/grantor_controller.php?respond=' . urlencode($token) . '&status=rejected';
+    $dashUrl    = $baseUrl . '/?page=my_grantor_requests';
 
     // ── In-app notification ──────────────────────────────────────────
     createSystemNotification(
@@ -55,7 +56,18 @@ function sendGrantorRequest(mysqli $conn, int $loanId, int $grantorId, int $appl
 
     // ── Email notification ───────────────────────────────────────────
     // Only send if grantor has an email address
-    $grantorEmail = $grantor['email'] ?? '';
+    // Use the email from the users table directly — grantor array may have stale data
+    $grantorEmail = '';
+    if ($grantor && is_array($grantor)) {
+        $grantorEmail = $grantor['email'] ?? '';
+    }
+    // Fallback: re-fetch grantor email fresh from DB
+    if (empty($grantorEmail)) {
+        $freshGrantor = $conn->query("SELECT email FROM users WHERE id = $grantorId AND deleted_at IS NULL LIMIT 1");
+        if ($freshGrantor && $freshGrantor->num_rows > 0) {
+            $grantorEmail = $freshGrantor->fetch_assoc()['email'] ?? '';
+        }
+    }
     if (!empty($grantorEmail)) {
         $subject = APP_NAME . ' — Loan Guarantor Request from ' . $applicantName;
 
@@ -122,8 +134,16 @@ function sendGrantorRequest(mysqli $conn, int $loanId, int $grantorId, int $appl
 </body>
 </html>";
 
-        // Send directly (not via queue) so the email goes out immediately
-        sendEmail($grantorEmail, $subject, $emailBody);
+        // Send directly (not via queue) so the email goes out immediately.
+        // IMPORTANT: capture and log the result — previously this return value
+        // was discarded, so a failed send (bad SMTP creds, blocked port, etc.)
+        // looked identical to a successful one from the caller's perspective.
+        $emailResult = sendEmail($grantorEmail, $subject, $emailBody);
+        if (!$emailResult['success']) {
+            error_log("sendGrantorRequest(): email to grantor #{$grantorId} ({$grantorEmail}) for loan #{$loanId} FAILED: " . $emailResult['message']);
+        }
+    } else {
+        error_log("sendGrantorRequest(): grantor #{$grantorId} for loan #{$loanId} has NO email address on file — email not sent.");
     }
 
     return $notifId;

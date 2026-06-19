@@ -1,6 +1,13 @@
+<?php
+// Branch chair sees loans that were approved by the branch officer and
+// are now pending loan-committee review (status = 'hq_pending').
+// Uses the correct session key $_SESSION['branchid'] and loans.branch_id.
+$branchId = (int)($_SESSION['branchid'] ?? 0);
+$loanList = selectLoansByStatus($conn, "hq_pending", $branchId);
+?>
 <div class=" card  card-info ">
     <div class=" card-header">
-        <h4 class=" card-title">Pending  Loan List</h4>
+        <h4 class=" card-title">Pending Loan List (HQ Review)</h4>
     </div>
     
     <div class=" card-body">
@@ -14,33 +21,31 @@
                         <td>Interest</td>
                         <td>Interest Rate</td>
                         <td>Period</td>
-                        
                         <td>Action</td>
                     </tr>
                 </thead>
                 <tbody>
                     <?php
-                            $loanList = selectLoansByStatusAndBranchId($conn, "approved", (int) $_SESSION['branch_id']);
-                            if($loanList && is_array($loanList)){
-                                $count = 1;
-                                foreach($loanList as $loan){
-                                    echo "<tr>";
-                                    echo "<td>$count</td>";
-                                    echo "<td>$loan[name]</td>";
-                                    echo "<td>". number_format( $loan['principle'],2) ."</td>";
-                                    echo "<td>". number_format( $loan['interest_amount'],2 ) ."</td>";
-                                    echo "<td>$loan[interest_rate]</td>";
-                                    echo "<td>$loan[period]</td>";
-                                   
-                                    echo "<td><a href='./?page=ln_commetee_process_loan&loan_id=$loan[id]&user_id=$loan[user_id]' class='btn btn-sm btn-primary'>Process Loan</a></td>";
-                                    echo "</tr>";
-                                    $count++;
-                                }
-                            } 
+                    if($loanList && is_array($loanList)){
+                        $count = 1;
+                        foreach($loanList as $loan){
+                            echo "<tr>";
+                            echo "<td>$count</td>";
+                            echo "<td>$loan[name]</td>";
+                            echo "<td>". number_format($loan['principle'],2) ."</td>";
+                            echo "<td>". number_format($loan['interest_amount'],2) ."</td>";
+                            echo "<td>$loan[interest_rate]</td>";
+                            echo "<td>$loan[period]</td>";
+                            echo "<td><a href='./?page=ln_commetee_process_loan&loan_id=$loan[id]&user_id=$loan[user_id]' class='btn btn-sm btn-primary'>Process Loan</a></td>";
+                            echo "</tr>";
+                            $count++;
+                        }
+                    } else {
+                        echo "<tr><td colspan='7' class='text-center text-muted'>No pending loans found.</td></tr>";
+                    }
                     ?>
                 </tbody>
             </table>
         </div>
-    </div>
     </div>
 </div>

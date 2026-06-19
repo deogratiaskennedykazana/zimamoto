@@ -21,8 +21,19 @@ function sendEmail($to, $subject, $message, $fromEmail = null, $fromName = null)
         $mail->Password = SMTP_PASSWORD;
         $mail->SMTPSecure = PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
         $mail->Port = SMTP_PORT;
-        
-        $mail->setFrom($fromEmail, $fromName);
+
+        // Gmail's SMTP relay rejects (or silently drops) messages where the From
+        // address does not match the authenticated account or a verified "Send As"
+        // alias in that Gmail account. SMTP_FROM_EMAIL was a different domain
+        // (noreply@zimamoto.tellicerpsys.co.tz) than SMTP_USERNAME (a gmail.com
+        // address), which is exactly the kind of mismatch Gmail blocks without any
+        // error reaching this script. Use the authenticated Gmail address as the
+        // real envelope/From, and keep the friendly "from name" + a Reply-To if a
+        // different display address is wanted.
+        $mail->setFrom(SMTP_USERNAME, $fromName);
+        if ($fromEmail && $fromEmail !== SMTP_USERNAME) {
+            $mail->addReplyTo($fromEmail, $fromName);
+        }
         $mail->addAddress($to);
         $mail->isHTML(true);
         $mail->Subject = $subject;
@@ -32,7 +43,13 @@ function sendEmail($to, $subject, $message, $fromEmail = null, $fromName = null)
         $mail->send();
         return ['success' => true, 'message' => 'Email sent successfully'];
     } catch (Exception $e) {
-        return ['success' => false, 'message' => $mail->ErrorInfo];
+        // Previously this failure was completely silent — nothing was ever logged,
+        // so a bad SMTP password, blocked port, or mismatched From address would
+        // fail with zero trace anywhere (this is why grantors were not receiving
+        // emails: the send was failing every time and nobody could tell).
+        $errInfo = isset($mail) ? $mail->ErrorInfo : $e->getMessage();
+        error_log("sendEmail() FAILED to {$to} | Subject: {$subject} | Error: {$errInfo}");
+        return ['success' => false, 'message' => $errInfo];
     }
 }
 

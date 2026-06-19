@@ -9,6 +9,7 @@
     require_once  "../functions/min_sub_functions.php";
     require_once "../functions/grantor_functions.php";
     require_once "../functions/notification_functions.php";
+    require_once "../functions/member_functions.php";
     require_once "../functions/user_function.php"; // FIX: required by grantor_functions.php's selectUserById()
     require_once "../configs.php";
     $conn = openConn();
@@ -195,48 +196,52 @@
             $interest_amount = (float) $_POST['interest_amount'];
             $principle = (float) $_POST['principle'];
             $loanTerm = (int) $_POST['loan_term'];
-            $loanSuspenceAccount =3028;
-            $accruedInterestIncomeOnLoan =3027; 
+            $loanSuspenceAccount = 3028;
+            $accruedInterestIncomeOnLoan = 3027; 
             $approveDate = $conn->real_escape_string($_POST['approve_date']);
-            //insert double entry 
-            
-            $LoanSub = selectMinSubByUserIDAndCategory($conn,$userId,"loan");
-             print_r($LoanSub);
+
+            $LoanSub = selectMinSubByUserIDAndCategory($conn, $userId, "loan");
             if($LoanSub && is_array($LoanSub)){
-                
-                    $principleEntry = createMinTransaction($conn,"LAJV/".$loanId,$LoanSub['id'],"approved loan:principle",$principle,$loanSuspenceAccount,$approveDate,$_SESSION['userid'],$branchId,"active" );
-                    if(!$principleEntry){
-                        echo $principleEntry;
-                        return;
-                    }
-                    $interestEntry = createMinTransaction($conn,"LAJV/".$loanId,$LoanSub['id'],"approved loan:interest",$interest_amount,$accruedInterestIncomeOnLoan,$approveDate,$_SESSION['userid'],$branchId,"active" );
-                    if(!$interestEntry){
-                        echo $interestEntry;
-                        return;
-                    }
-                    // insert loan
-                    $approvedLoan = approveLoan($conn,$loanId,$interest_amount,$interest_rate,"approved");
-                    if($approvedLoan){
-                        echo $approvedLoan;
-                        $schedule = generateSchedule($principle,$interest_rate,$loanTerm,'month',$approveDate);
-                        if($schedule && is_array($schedule)){
-                            foreach($schedule as $repayment){
-                                $date = $repayment['repayment_date'];
-                                $newSchedule = insertSchedule($conn,$userId,$branchId,$loanId,$repayment['principle'],$repayment['interest'],$date,0.0,"pending");
-                                if(!$newSchedule){
-                                    echo $newSchedule;
-                                    return;
-                                }
+                $principleEntry = createMinTransaction($conn, "LAJV/".$loanId, $LoanSub['id'], "approved loan:principle", $principle, $loanSuspenceAccount, $approveDate, $_SESSION['userid'], $branchId, "active");
+                if(!$principleEntry){
+                    echo $principleEntry;
+                    return;
+                }
+                $interestEntry = createMinTransaction($conn, "LAJV/".$loanId, $LoanSub['id'], "approved loan:interest", $interest_amount, $accruedInterestIncomeOnLoan, $approveDate, $_SESSION['userid'], $branchId, "active");
+                if(!$interestEntry){
+                    echo $interestEntry;
+                    return;
+                }
+                $approvedLoan = approveLoan($conn, $loanId, $interest_amount, $interest_rate, "approved");
+                if($approvedLoan){
+                    $schedule = generateSchedule($principle, $interest_rate, $loanTerm, 'month', $approveDate);
+                    if($schedule && is_array($schedule)){
+                        foreach($schedule as $repayment){
+                            $date = $repayment['repayment_date'];
+                            $newSchedule = insertSchedule($conn, $userId, $branchId, $loanId, $repayment['principle'], $repayment['interest'], $date, 0.0, "pending");
+                            if(!$newSchedule){
+                                echo $newSchedule;
+                                return;
                             }
                         }
-                    } else{
-                        echo $approvedLoan;
-                        return;
                     }
+                    // Notify the member their loan was approved
+                    createSystemNotification(
+                        $conn, $userId,
+                        'Loan Approved',
+                        "Congratulations! Your loan application of TZS " . number_format($principle, 2) . " has been approved. Repayment begins " . date('d/m/Y', strtotime($approveDate . ' +1 month')) . ".",
+                        'success',
+                        './?page=my_loan'
+                    );
+                } else {
+                    echo $approvedLoan;
+                    return;
+                }
+            } else {
+                echo "<script>alert('Loan sub-account not found for this member.'); window.history.back();</script>";
+                return;
             }
-           
-        
-            echo "<script> alert('SUCCESS'); window.location.href='../?page=Pending_loan_list_form';</script>";
+            echo "<script> alert('Loan approved successfully!'); window.location.href='../?page=Pending_loan_list_form';</script>";
         } 
         
         if(isset($_POST['upload_general_loan'])){
@@ -365,22 +370,37 @@ if(isset($_POST['upload_general_loan_repayment'])){
         
         
         if(isset($_POST['send_loan_comment'])){
-            print_r($_POST);
-             $loanId = (int) $_POST['loan_id'];
+            $loanId = (int) $_POST['loan_id'];
             $userId = (int) $_POST['user_id'];
             $branchId = (int) $_POST['branch_id'];
             $level = $conn->real_escape_string($_POST['level']);
             $role = $conn->real_escape_string($_POST['role']);
             $comment = $conn->real_escape_string($_POST['comment']);
             $status = $conn->real_escape_string($_POST['status']);
-            $newComment = addLoanComment($conn,$userId,$loanId,$comment,$level,$status, $role);
+            $newComment = addLoanComment($conn, $userId, $loanId, $comment, $level, $status, $role);
             if($newComment){
-                $updateLoanStatus = updateLoanStatus($conn,$loanId,$status);
+                $updateLoanStatus = updateLoanStatus($conn, $loanId, $status);
                 if(!$updateLoanStatus){
                     echo $updateLoanStatus;
                     return;
                 }
-                
+                // Notify the member of their loan status change
+                $statusLabels = [
+                    'approved'                  => ['title' => 'Loan Approved',   'type' => 'success'],
+                    'rejected'                  => ['title' => 'Loan Rejected',   'type' => 'danger'],
+                    'hq_pending'                => ['title' => 'Loan Forwarded',  'type' => 'info'],
+                    'loan_comettee_processed'   => ['title' => 'Loan Processed',  'type' => 'info'],
+                    'hq_loan_officer_rejected'  => ['title' => 'Loan Rejected',   'type' => 'danger'],
+                ];
+                $label = $statusLabels[$status] ?? ['title' => 'Loan Update', 'type' => 'info'];
+                createSystemNotification(
+                    $conn,
+                    $userId,
+                    $label['title'],
+                    "Your loan application has been updated to status: $status. Comment: $comment",
+                    $label['type'],
+                    './?page=my_loan'
+                );
             }
             echo "<script>alert('SUCCESS'); window.location.href='../?page=branch_pending_loan&branch_id=$branchId'</script>";
         }

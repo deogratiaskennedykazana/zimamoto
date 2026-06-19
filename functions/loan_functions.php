@@ -110,13 +110,15 @@
                 WHERE loans.status = ? AND loans.deleted_at IS NULL";
     
         if (!is_null($branchId)) {
-            $sql .= " AND users.branch_id = ?";
+            // Filter by loans.branch_id (set at application time) — NOT users.branch_id
+            // which is unreliable and may not match after branch transfers.
+            $sql .= " AND loans.branch_id = ?";
         }
     
         $stmt = $conn->prepare($sql);
     
         if (!is_null($branchId)) {
-            $stmt->bind_param("ss", $status, $branchId);
+            $stmt->bind_param("si", $status, $branchId);
         } else {
             $stmt->bind_param("s", $status);
         }

@@ -6,9 +6,14 @@
             <strong>What does being a guarantor mean?</strong> By accepting, you agree to be responsible for repaying this loan if the borrower defaults. Please review the loan details carefully before responding.
         </div>
         <?php
-        $pendingRequests = selectGrantorPendingRequests($conn, $_SESSION['userid']);
+        // Guard against a missing/expired session value — previously this was
+        // passed straight into a function requiring a strict `int` parameter,
+        // which caused a fatal TypeError crash ("Argument #2 must be of type
+        // int, null given") whenever userid wasn't set.
+        $currentGrantorId = (int) ($_SESSION['userid'] ?? 0);
+        $pendingRequests = selectGrantorPendingRequests($conn, $currentGrantorId);
         // Also fetch all (including responded) for history
-        $allRequests = selectAllGrantorNotificationsForGrantor($conn, (int)$_SESSION['userid']);
+        $allRequests = selectAllGrantorNotificationsForGrantor($conn, $currentGrantorId);
         if($pendingRequests && is_array($pendingRequests) && count($pendingRequests) > 0):
         ?>
         <h5 class="mb-3 text-warning"><i class="fas fa-clock mr-1"></i>Pending Requests (<?= count($pendingRequests) ?>)</h5>
