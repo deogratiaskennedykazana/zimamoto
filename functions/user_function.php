@@ -107,27 +107,22 @@ $sql = "SELECT users.*, branches.name AS branch_name
             if($conn === false){
                 exit();
             }
-            // Join through members.branch_id (the authoritative branch column).
-            // users.branch_id is unreliable — it was never updated by update_member.
-            // LEFT JOIN ensures users without a members row are excluded (INNER would also work,
-            // but LEFT + WHERE members.branch_id gives a clearer intent).
+            // Use members.branch_id as the authoritative branch column.
+            // Plain query() is used because this server has no mysqlnd (no get_result()).
+            // $branchId is cast to int above so interpolation is safe.
             $sql = "SELECT DISTINCT users.id, users.name, users.email, users.role,
                            users.type, users.level, users.status,
                            branches.name as branch_name
                     FROM users
                     INNER JOIN members ON members.user_id = users.id
                                       AND members.deleted_at IS NULL
-                                      AND members.branch_id = ?
-                    INNER JOIN branches ON branches.id = ?
+                                      AND members.branch_id = $branchId
+                    INNER JOIN branches ON branches.id = $branchId
                     WHERE users.deleted_at IS NULL
                       AND users.status = 'approved'
-                    ORDER BY users.name ASC;";
-            $stmt = $conn->prepare($sql);
-            if($stmt === false){
-                exit();
-            }
-            $stmt->bind_param("ii", $branchId, $branchId);
-            return ($stmt->execute()) ? stmt_fetch_all($stmt) : $stmt->error;
+                    ORDER BY users.name ASC";
+            $result = $conn->query($sql);
+            return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
         }
         
         function selectsByBranchIdAndUserRole(mysqli $conn, int $branchId, string $role){

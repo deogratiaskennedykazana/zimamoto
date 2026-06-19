@@ -155,32 +155,26 @@ if(isset($_GET['get_min_sub_by_branch_id'])){
             $userId   = isset($_GET['userId'])  ? (int) $_GET['userId']  : 0;
             $branchId = isset($_GET['branchId']) ? (int) $_GET['branchId'] : 0;
 
-            // Always resolve branch from members table (authoritative source)
+            // Always resolve branch from members table (authoritative source).
+            // Use query() — this server has no mysqlnd so get_result() is unavailable.
             if ($userId > 0) {
-                $branchStmt = $conn->prepare(
-                    "SELECT branch_id FROM members WHERE user_id = ? AND deleted_at IS NULL LIMIT 1"
-                );
-                if ($branchStmt) {
-                    $branchStmt->bind_param("i", $userId);
-                    $branchStmt->execute();
-                    $branchRow = $branchStmt->get_result()->fetch_assoc();
-                    $branchStmt->close();
-                    if ($branchRow && !empty($branchRow['branch_id'])) {
-                        $branchId = (int) $branchRow['branch_id'];
-                    }
+                $row = $conn->query("SELECT branch_id FROM members WHERE user_id = $userId AND deleted_at IS NULL LIMIT 1");
+                if ($row && $row->num_rows > 0) {
+                    $branchId = (int) $row->fetch_assoc()['branch_id'];
                 }
             }
 
             // DEBUG: expose raw diagnostics when ?debug=1 is added to the URL
             if (isset($_GET['debug'])) {
-                $diagSql = "SELECT u.id, u.name, u.status, u.deleted_at AS u_deleted,
-                                   m.branch_id AS m_branch, m.deleted_at AS m_deleted
-                            FROM users u
-                            LEFT JOIN members m ON m.user_id = u.id
-                            WHERE m.branch_id = $branchId
-                            ORDER BY u.name";
-                $diagResult = $conn->query($diagSql);
-                $diagData   = $diagResult ? $diagResult->fetch_all(MYSQLI_ASSOC) : [];
+                $diagResult = $conn->query(
+                    "SELECT u.id, u.name, u.status, u.deleted_at AS u_deleted,
+                            m.branch_id AS m_branch, m.deleted_at AS m_deleted
+                     FROM users u
+                     LEFT JOIN members m ON m.user_id = u.id
+                     WHERE m.branch_id = $branchId
+                     ORDER BY u.name"
+                );
+                $diagData = $diagResult ? $diagResult->fetch_all(MYSQLI_ASSOC) : [];
                 echo json_encode([
                     'resolved_branch_id' => $branchId,
                     'requesting_user_id' => $userId,
