@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['forgot'])) {
             $ins->close();
 
             if ($inserted) {
-                $resetLink = APP_URL . '/zimamoto/reset_password.php?token=' . urlencode($token);
+                $resetLink = APP_URL . '/reset_password.php?token=' . urlencode($token);
 
                 $subject = APP_NAME . ' — Password Reset Request';
                 $body    = '

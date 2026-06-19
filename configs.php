@@ -99,5 +99,5 @@ define('SMS_USERNAME', 'sandbox');                      // 'sandbox' for testing
 define('SMS_FROM',     'ZIMAMOTO');
 
 // ========== APPLICATION ==========
-define('APP_URL',  'https://zimamoto.tellicerpsys.co.tz');
+define('APP_URL',  'https://tellicerpsys.co.tz/zimamoto');
 define('APP_NAME', 'Zima-Moto SACCOS');
