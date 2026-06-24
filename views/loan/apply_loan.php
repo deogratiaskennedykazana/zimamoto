@@ -39,7 +39,7 @@
                 </div>
                 <div class=" form-group">
                     <label for="">Loan Category</label>
-                    <select name="loan_type" class=" form-control select2-form select2bs4-form" required id="">
+                    <select name="loan_type" class=" form-control select2-form select2bs4-form" required id="loan_type_select" onchange="showLoanConditions(this.value)">
                         <option value=""> select Loan Category</option>
                         <?php
                                 $loanTypes = selectLoanTypes($conn);
@@ -52,6 +52,7 @@
                         ?>
                     </select>
                 </div>
+                <div id="loanConditions" class=" alert alert-info" style="display:none;"></div>
                  
            
                 <div class=" form-group">
@@ -124,6 +125,28 @@
              </div>
         </form>
 </div>
+
+<script>
+var loanTypesData = <?= json_encode($loanTypes ?: []) ?>;
+function showLoanConditions(id){
+    var box = document.getElementById('loanConditions');
+    if(!id){ box.style.display = 'none'; return; }
+    var lt = null;
+    for(var i=0;i<loanTypesData.length;i++){ if(String(loanTypesData[i].id) === String(id)){ lt = loanTypesData[i]; break; } }
+    if(!lt){ box.style.display = 'none'; return; }
+    var maxText = parseFloat(lt.max_amount) > 0 ? Number(lt.max_amount).toLocaleString() : 'no fixed cap (savings-based)';
+    var html = '<strong>' + lt.name + ' — Conditions</strong><ul class="mb-0">' +
+        '<li>Amount: TZS ' + Number(lt.min_amount).toLocaleString() + ' – ' + maxText + '</li>' +
+        '<li>Repayment period: ' + lt.min_period + ' – ' + lt.max_period + ' months</li>' +
+        '<li>Interest rate: ' + lt.interest_rate + '% per year</li>' +
+        '<li>Required guarantors: ' + lt.required_grantors + '</li>' +
+        '<li>Max eligible amount is up to ' + lt.savings_multiplier + 'x the member\'s total savings</li>' +
+        (lt.eligibility_notes ? '<li>' + lt.eligibility_notes + '</li>' : '') +
+        '</ul>';
+    box.innerHTML = html;
+    box.style.display = 'block';
+}
+</script>
 
 <script>
 function showRepaymentFields() {

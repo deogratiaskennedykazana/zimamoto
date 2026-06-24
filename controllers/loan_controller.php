@@ -94,6 +94,34 @@
                 // Get repayment mode data
                 $repaymentMode = $_POST['repayment_mode'];
                 $period = (int) $_POST['period'];
+
+                // ── Validate against the selected loan product's own rules ──
+                // Each loan product (Emergency, Development, Education, Business, ...)
+                // carries its own min/max amount, period range, and required guarantor
+                // count. Re-check server-side — never trust the client-side form alone.
+                $selectedLoanType = selectLoanTypeById($conn, $loantype);
+                if(!$selectedLoanType){
+                    echo "<script>alert('Selected loan product is invalid or no longer available.'); window.history.back();</script>";
+                    exit;
+                }
+                $minAmt = (float) $selectedLoanType['min_amount'];
+                $maxAmt = (float) $selectedLoanType['max_amount'];
+                if($amount < $minAmt || ($maxAmt > 0 && $amount > $maxAmt)){
+                    $rangeText = 'TZS ' . number_format($minAmt,2) . ($maxAmt > 0 ? ' - TZS ' . number_format($maxAmt,2) : ' and above');
+                    echo "<script>alert('The {$selectedLoanType['name']} allows amounts between $rangeText. Please adjust your requested amount.'); window.history.back();</script>";
+                    exit;
+                }
+                $minPeriod = (int) $selectedLoanType['min_period'];
+                $maxPeriod = (int) $selectedLoanType['max_period'];
+                if($period < $minPeriod || $period > $maxPeriod){
+                    echo "<script>alert('The {$selectedLoanType['name']} allows a repayment period of {$minPeriod}-{$maxPeriod} months. Please adjust the period.'); window.history.back();</script>";
+                    exit;
+                }
+                $requiredGrantors = (int) $selectedLoanType['required_grantors'];
+                if(count(array_filter($grantors)) < $requiredGrantors){
+                    echo "<script>alert('The {$selectedLoanType['name']} requires at least {$requiredGrantors} guarantor(s).'); window.history.back();</script>";
+                    exit;
+                }
                 
                 // Initialize variables
                 $basicSalary = 0;
@@ -212,8 +240,19 @@
                     echo $interestEntry;
                     return;
                 }
-                $approvedLoan = approveLoan($conn, $loanId, $interest_amount, $interest_rate, "approved");
+                $approvedLoan = approveLoan($conn, $loanId, $interest_amount, $interest_rate, "approved", $approveDate, (int) $_SESSION['userid']);
                 if($approvedLoan){
+                    // Persist a snapshot of the eligibility check that was visible to the
+                    // reviewer at decision time — useful later for audits/disputes.
+                    if(function_exists('evaluateLoanEligibility')){
+                        $snapshot = evaluateLoanEligibility($conn, $loanId);
+                        $stmtSnap = $conn->prepare("UPDATE loans SET eligibility_snapshot = ? WHERE id = ?");
+                        if($stmtSnap){
+                            $snapJson = json_encode($snapshot);
+                            $stmtSnap->bind_param("si", $snapJson, $loanId);
+                            $stmtSnap->execute();
+                        }
+                    }
                     $schedule = generateSchedule($principle, $interest_rate, $loanTerm, 'month', $approveDate);
                     if($schedule && is_array($schedule)){
                         foreach($schedule as $repayment){
@@ -241,8 +280,97 @@
                 echo "<script>alert('Loan sub-account not found for this member.'); window.history.back();</script>";
                 return;
             }
-            echo "<script> alert('Loan approved successfully!'); window.location.href='../?page=Pending_loan_list_form';</script>";
-        } 
+            echo "<script> alert('Loan approved successfully!'); window.location.href='../?page=loan_applications';</script>";
+        }
+
+        // ── Reject a pending loan application ──────────────────────────
+        // Mirrors approveLoan(): records who reviewed it, when, and why,
+        // and notifies the member so they know not to expect funds.
+        if(isset($_POST['reject_loan'])){
+            $loanId = (int) $_POST['loan_id'];
+            $userId = (int) $_POST['user_id'];
+            $reason = $conn->real_escape_string(trim($_POST['rejection_reason'] ?? ''));
+            if($reason === ''){
+                echo "<script>alert('Please provide a reason for rejecting this loan.'); window.history.back();</script>";
+                exit;
+            }
+            $rejected = rejectLoan($conn, $loanId, $reason, (int) $_SESSION['userid']);
+            if($rejected !== true){
+                echo $rejected;
+                exit;
+            }
+            createSystemNotification(
+                $conn, $userId,
+                'Loan Application Rejected',
+                "Your loan application was not approved. Reason: " . $reason,
+                'danger',
+                './?page=my_loan'
+            );
+            echo "<script> alert('Loan application rejected.'); window.location.href='../?page=loan_applications';</script>";
+        }
+
+        // ================================================================
+        //  LOAN PRODUCT (loan_types) CRUD — admin management
+        // ================================================================
+        if(isset($_POST['add_loan_product']) || isset($_POST['update_loan_product'])){
+            $modes = [];
+            if(!empty($_POST['mode_salary'])) $modes[] = 'salary';
+            if(!empty($_POST['mode_standing_order'])) $modes[] = 'standing_order';
+            $d = [
+                'name'                    => $conn->real_escape_string(trim($_POST['name'] ?? '')),
+                'description'             => $conn->real_escape_string(trim($_POST['description'] ?? '')),
+                'min_amount'              => (float) ($_POST['min_amount'] ?? 0),
+                'max_amount'              => (float) ($_POST['max_amount'] ?? 0),
+                'interest_rate'           => (float) ($_POST['interest_rate'] ?? 0),
+                'min_period'              => (int) ($_POST['min_period'] ?? 1),
+                'max_period'              => (int) ($_POST['max_period'] ?? 12),
+                'savings_multiplier'      => (float) ($_POST['savings_multiplier'] ?? 3),
+                'required_grantors'       => (int) ($_POST['required_grantors'] ?? 0),
+                'processing_fee_percent'  => (float) ($_POST['processing_fee_percent'] ?? 0),
+                'allowed_repayment_modes' => implode(',', $modes ?: ['salary','standing_order']),
+                'eligibility_notes'       => $conn->real_escape_string(trim($_POST['eligibility_notes'] ?? '')),
+                'status'                  => ($_POST['status'] ?? 'active') === 'inactive' ? 'inactive' : 'active',
+            ];
+            if($d['name'] === ''){
+                echo "<script>alert('Product name is required.'); window.history.back();</script>";
+                exit;
+            }
+            if(isset($_POST['add_loan_product'])){
+                $result = insertLoanType($conn, $d, (int) $_SESSION['userid']);
+            } else {
+                $id = (int) $_POST['id'];
+                $result = updateLoanType($conn, $id, $d, (int) $_SESSION['userid']);
+            }
+            if($result === true || (is_numeric($result) && $result > 0)){
+                echo "<script> alert('Loan product saved successfully.'); window.location.href='../?page=loan_products';</script>";
+            } else {
+                echo $result;
+                exit;
+            }
+        }
+
+        if(isset($_POST['toggle_loan_product_status'])){
+            $id = (int) $_POST['id'];
+            $newStatus = ($_POST['new_status'] ?? 'inactive') === 'active' ? 'active' : 'inactive';
+            $result = toggleLoanTypeStatus($conn, $id, $newStatus);
+            if($result === true){
+                echo "<script> window.location.href='../?page=loan_products';</script>";
+            } else {
+                echo $result;
+                exit;
+            }
+        }
+
+        if(isset($_POST['delete_loan_product'])){
+            $id = (int) $_POST['id'];
+            $result = softDeleteLoanType($conn, $id);
+            if($result === true){
+                echo "<script> alert('Loan product deleted.'); window.location.href='../?page=loan_products';</script>";
+            } else {
+                echo $result;
+                exit;
+            }
+        }
         
         if(isset($_POST['upload_general_loan'])){
     print_r($_POST);

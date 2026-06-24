@@ -626,7 +626,8 @@
             //   break;
              // loan issues
             case"approved_loan_list_form":
-              include("./views/loan/approved_loan_list_form.php");
+              // Legacy route — unified into Loan Applications.
+              echo "<script>window.location.href='./?page=loan_applications&status=approved';</script>";
              break;
            case"approved_loan_list":
                     include("./views/loan/approved_loan_list.php"); 
@@ -635,10 +636,17 @@
               include("./views/loan/loan_schedule.php");
             break;
             case"Pending_loan_list_form":
-              include("./views/loan/pending_loan_list_form.php");
+              // Legacy route — unified into Loan Applications.
+              echo "<script>window.location.href='./?page=loan_applications&status=pending';</script>";
               break;
             case"pending_loan_list":
               include("./views/loan/pending_loan_list.php");
+            break;
+            case"loan_applications":
+              include("./views/loan/loan_applications_list.php");
+            break;
+            case"loan_products":
+              include("./views/loan/loan_products.php");
             break;
             case"apply_loan":
               include("./views/loan/apply_loan.php");

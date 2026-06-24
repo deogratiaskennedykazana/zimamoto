@@ -164,10 +164,10 @@ $_canMeetings   = !$_isMember     || userHasPermission($conn, $_sUid, 'Meetings'
                 <a href="./?page=upload_loan_repayments" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Upload Repayments</p></a>
               </li>
               <li class="nav-item<?= _sideHide(!$_canMembers) ?>">
-                <a href="./?page=approved_loan_list_form" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Approved Loan List</p></a>
+                <a href="./?page=loan_products" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Loan Products</p></a>
               </li>
               <li class="nav-item<?= _sideHide(!$_canMembers) ?>">
-                <a href="./?page=Pending_loan_list_form" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Pending Loan List</p></a>
+                <a href="./?page=loan_applications" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Loan Applications</p></a>
               </li>
              <!-- Member self-service loan link -->
               <?php if(($_SESSION['role'] ?? '') === 'member'): ?>

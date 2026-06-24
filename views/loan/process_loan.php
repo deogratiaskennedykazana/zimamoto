@@ -52,7 +52,73 @@
                 }
             ?>
         </div>
-    
+
+        <?php
+            // ============================================================
+            //  ELIGIBILITY ENGINE REPORT
+            //  Pulls the member's savings, outstanding balances, overdue
+            //  installments, guarantor acceptance and product rules into
+            //  one verdict so the reviewer doesn't have to dig manually.
+            // ============================================================
+            $eligibility = evaluateLoanEligibility($conn, (int) $_GET['loan_id']);
+            if($eligibility && empty($eligibility['error'])){
+                $recoBadge = [
+                    'recommended'       => ['label' => 'Recommended',        'class' => 'badge-success'],
+                    'review_carefully'  => ['label' => 'Review Carefully',   'class' => 'badge-warning'],
+                    'not_recommended'   => ['label' => 'Not Recommended',    'class' => 'badge-danger'],
+                ][$eligibility['recommendation']] ?? ['label' => 'Unknown', 'class' => 'badge-secondary'];
+                $checkIcon = ['pass' => 'fa-check-circle text-success', 'warning' => 'fa-exclamation-triangle text-warning', 'fail' => 'fa-times-circle text-danger'];
+        ?>
+        <div class="card-body">
+            <div class="card card-outline <?= $eligibility['recommendation'] === 'not_recommended' ? 'card-danger' : ($eligibility['recommendation'] === 'review_carefully' ? 'card-warning' : 'card-success') ?>">
+                <div class="card-header">
+                    <h5 class="card-title"><i class="fas fa-shield-alt mr-1"></i> Eligibility Check</h5>
+                    <div class="card-tools"><span class="badge <?= $recoBadge['class'] ?>"><?= $recoBadge['label'] ?></span></div>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled mb-2">
+                        <?php foreach($eligibility['checks'] as $c): ?>
+                            <li class="mb-1">
+                                <i class="fas <?= $checkIcon[$c['status']] ?? 'fa-info-circle' ?> mr-1"></i>
+                                <strong><?= htmlspecialchars($c['label']) ?>:</strong> <?= htmlspecialchars($c['detail']) ?>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                    <small class="text-muted">Max eligible by savings: TZS <?= number_format($eligibility['max_by_savings'],2) ?> &nbsp;|&nbsp; Total savings: TZS <?= number_format($eligibility['savings']['total'],2) ?></small>
+                </div>
+            </div>
+
+            <div class="card card-outline card-secondary">
+                <div class="card-header"><h5 class="card-title"><i class="fas fa-history mr-1"></i> Member's Loan History</h5></div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered mb-0">
+                            <tr class="table-secondary"><th>#</th><th>Product</th><th>Amount</th><th>Period</th><th>Status</th></tr>
+                            <?php
+                                $history = getMemberLoanHistory($conn, (int) $_GET['user_id'], (int) $_GET['loan_id']);
+                                if($history && is_array($history) && count($history) > 0){
+                                    $hi = 1;
+                                    foreach($history as $h){
+                                        echo "<tr>";
+                                        echo "<td>" . $hi++ . "</td>";
+                                        echo "<td>" . htmlspecialchars($h['product_name'] ?? '\xe2\x80\x94') . "</td>";
+                                        echo "<td>" . number_format((float)$h['principle'],2) . "</td>";
+                                        echo "<td>" . (int)$h['period'] . " mo</td>";
+                                        $badge = ['pending'=>'badge-warning','approved'=>'badge-success','rejected'=>'badge-danger'][$h['status']] ?? 'badge-secondary';
+                                        echo "<td><span class='badge $badge'>" . htmlspecialchars($h['status']) . "</span></td>";
+                                        echo "</tr>";
+                                    }
+                                } else {
+                                    echo "<tr><td colspan='5' class='text-center text-muted'>No prior loan applications.</td></tr>";
+                                }
+                            ?>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <?php } ?>
+
     <div class=" card-body">
         <div class=" row">
             <div class=" col-md-6 col-sm-10">
@@ -211,6 +277,23 @@
                 </div>
                 </form>
                  </div>
+
+                <div class=" card card-outline card-danger mt-3">
+                    <div class=" card-header"><h5 class=" card-title"><i class="fas fa-ban mr-1"></i> Reject This Application</h5></div>
+                    <form action="./controllers/loan_controller.php" method="post" class=" was-validated" onsubmit="return confirm('Reject this loan application? The member will be notified with the reason given.');">
+                        <input type="hidden" name="loan_id" value="<?= $_GET['loan_id'] ?>">
+                        <input type="hidden" name="user_id" value="<?= $_GET['user_id'] ?>">
+                        <div class=" card-body">
+                            <div class=" form-group">
+                                <label for="">Reason for rejection</label>
+                                <textarea name="rejection_reason" class=" form-control" rows="3" required placeholder="e.g. Insufficient savings relative to requested amount, outstanding arrears on a prior loan, etc."></textarea>
+                            </div>
+                        </div>
+                        <div class=" card-footer">
+                            <button type="submit" class=" btn btn-sm btn-block btn-danger" name="reject_loan">Reject Loan</button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>

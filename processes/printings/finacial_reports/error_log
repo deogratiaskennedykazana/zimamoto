@@ -1,4 +1,0 @@
-[03-Mar-2026 15:11:20 Asia/Kolkata] PHP Fatal error:  Uncaught Error: Call to undefined function selectOpeningBalance() in /home/sbiaccountco/jagwa.sbiaccount.co.tz/processes/printings/finacial_reports/print_account_statement.php:27
-Stack trace:
-#0 {main}
-  thrown in /home/sbiaccountco/jagwa.sbiaccount.co.tz/processes/printings/finacial_reports/print_account_statement.php on line 27

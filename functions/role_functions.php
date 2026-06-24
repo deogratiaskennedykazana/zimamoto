@@ -193,12 +193,38 @@ function getLoanAdvisorSuggestion(mysqli $conn, int $userId, float $amount, int 
     }
 
     $totalSavings = $savings + $amanaBalance + $shareBalance;
-    $maxLoanBySavings = $totalSavings * 3;
-    $interestRate = 12.0;
+    $multiplier = ($loanType && isset($loanType['savings_multiplier'])) ? (float)$loanType['savings_multiplier'] : 3.0;
+    $maxLoanBySavings = $totalSavings * $multiplier;
+    $interestRate = ($loanType && isset($loanType['interest_rate'])) ? (float)$loanType['interest_rate'] : 12.0;
     $monthlyRate = $interestRate / 12 / 100;
     $monthlyPayment = $amount * $monthlyRate * pow(1 + $monthlyRate, $period) / (pow(1 + $monthlyRate, $period) - 1);
     $totalInterest = ($monthlyPayment * $period) - $amount;
     $totalRepayment = $monthlyPayment * $period;
+
+    // Product-rule checks (amount range / period range), in addition to the
+    // savings-based affordability check below.
+    $withinAmountRange = true;
+    $withinPeriodRange = true;
+    $ruleMessages = [];
+    if($loanType){
+        $minA = (float)($loanType['min_amount'] ?? 0);
+        $maxA = (float)($loanType['max_amount'] ?? 0);
+        $withinAmountRange = $amount >= $minA && ($maxA <= 0 || $amount <= $maxA);
+        if(!$withinAmountRange){
+            $ruleMessages[] = 'This product allows TZS ' . number_format($minA,2) . ($maxA > 0 ? ' to TZS ' . number_format($maxA,2) : ' and above') . '.';
+        }
+        $minP = (int)($loanType['min_period'] ?? 1);
+        $maxP = (int)($loanType['max_period'] ?? 60);
+        $withinPeriodRange = $period >= $minP && $period <= $maxP;
+        if(!$withinPeriodRange){
+            $ruleMessages[] = "This product allows a period of {$minP}-{$maxP} months.";
+        }
+    }
+
+    $isAffordable = ($amount <= $maxLoanBySavings) && $withinAmountRange && $withinPeriodRange;
+    $message = $isAffordable
+        ? 'Based on your savings and this product\'s rules, you qualify for this loan amount.'
+        : trim('Your total savings (TZS ' . number_format($totalSavings, 2) . ') allow a maximum loan of TZS ' . number_format($maxLoanBySavings, 2) . '. ' . implode(' ', $ruleMessages));
 
     return [
         'loan_type_name' => $loanType ? $loanType['name'] : 'Unknown',
@@ -214,9 +240,7 @@ function getLoanAdvisorSuggestion(mysqli $conn, int $userId, float $amount, int 
         'total_savings' => $totalSavings,
         'existing_loan_balance' => $existingLoans,
         'max_loan_based_on_savings' => round($maxLoanBySavings, 2),
-        'is_affordable' => $amount <= $maxLoanBySavings,
-        'message' => $amount <= $maxLoanBySavings 
-            ? 'Based on your savings, you qualify for this loan amount.'
-            : 'Your total savings (TZS ' . number_format($totalSavings, 2) . ') allow a maximum loan of TZS ' . number_format($maxLoanBySavings, 2) . '. Consider reducing the amount.',
+        'is_affordable' => $isAffordable,
+        'message' => $message,
     ];
 }

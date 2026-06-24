@@ -31,7 +31,7 @@ $cls = $statusBadge[$loan['status']] ?? 'secondary';
             <div class="col-md-6">
                 <table class="table table-sm table-bordered">
                     <tr><th>Status</th><td><span class="badge badge-<?= $cls ?>"><?= ucwords(str_replace('_',' ',$loan['status'])) ?></span></td></tr>
-                    <tr><th>Loan Type</th><td><?= htmlspecialchars($loan['loan_type'] ?? 'N/A') ?></td></tr>
+                    <tr><th>Loan Type</th><td><?= htmlspecialchars($loan['loan_type_name'] ?? 'N/A') ?></td></tr>
                     <tr><th>Principal Amount</th><td>TZS <?= number_format((float)$loan['principle'],2) ?></td></tr>
                     <tr><th>Interest Rate</th><td><?= $loan['interest_rate'] ?>%</td></tr>
                     <tr><th>Interest Amount</th><td>TZS <?= number_format((float)$loan['interest_amount'],2) ?></td></tr>
