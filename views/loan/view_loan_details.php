@@ -12,6 +12,7 @@
             }
         ?>
         
+        
         <h5 class=" card-text bg-success p-2">Loan Details</h5>
         <div class=" card-footer">
             <?php
