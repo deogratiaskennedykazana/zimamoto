@@ -1678,11 +1678,16 @@ case"process_general_loan_repayment_upload":
 
 <?php
 // ── CHATBOT WIDGET ────────────────────────────────────────────
-// Injected only when admin has enabled it in chatbot_settings.
-// Zero impact on system logic when disabled.
-$_chatbotRow = $conn->query("SELECT enabled FROM chatbot_settings LIMIT 1")->fetch_assoc();
+// Injected only when:
+//   1. Admin has enabled the chatbot in chatbot_settings
+//   2. The current user's role is in the allowed_roles list
+$_chatbotRow = $conn->query("SELECT enabled, allowed_roles FROM chatbot_settings LIMIT 1")->fetch_assoc();
 if (!empty($_chatbotRow['enabled'])) {
-    include('./views/chatbot/chatbot_widget.php');
+    $_chatbotAllowed = array_map('trim', explode(',', strtolower($_chatbotRow['allowed_roles'] ?? 'admin,superadmin,super admin')));
+    $_currentRole    = strtolower($_SESSION['role'] ?? '');
+    if (in_array($_currentRole, $_chatbotAllowed)) {
+        include('./views/chatbot/chatbot_widget.php');
+    }
 }
 ?>
 

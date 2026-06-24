@@ -45,10 +45,21 @@ if (empty($_SESSION['chatbot_session_key']) || $sessionKey !== $_SESSION['chatbo
 require_once '../configs.php';
 $conn = openConn();
 
-// ── 5. Load chatbot settings ──────────────────────────────────
-$settingsRow = $conn->query("SELECT enabled, api_key, model FROM chatbot_settings LIMIT 1")->fetch_assoc();
+// ── 5. Load chatbot settings ────────────────────────────────
+$settingsRow = $conn->query("SELECT enabled, api_key, model, allowed_roles FROM chatbot_settings LIMIT 1")->fetch_assoc();
 if (empty($settingsRow['enabled'])) {
     echo json_encode(['error' => 'Chatbot is currently disabled.']);
+    exit;
+}
+
+// ── 5b. Role-based access check ───────────────────────────
+// The widget is already conditionally rendered, but we also block at the API
+// level so a determined user cannot POST directly to this endpoint.
+$allowedRolesStr = $settingsRow['allowed_roles'] ?? 'admin,superadmin,super admin';
+$allowedRolesList = array_map('trim', explode(',', strtolower($allowedRolesStr)));
+if (!in_array(strtolower($userRole), $allowedRolesList)) {
+    http_response_code(403);
+    echo json_encode(['error' => 'You do not have permission to use the chatbot.']);
     exit;
 }
 $geminiApiKey = $settingsRow['api_key'] ?? '';
@@ -201,97 +212,135 @@ function buildRoleContext(mysqli $conn, int $userId, string $role, string $level
         $r = $conn->query("SELECT COUNT(*) AS cnt FROM members WHERE deleted_at IS NULL");
         if ($r) { $row = $r->fetch_assoc(); $lines[] = "Total members in system: " . ($row['cnt'] ?? 0); }
 
-        // Loan summary
-        $r = $conn->query("SELECT status, COUNT(*) AS cnt, SUM(amount) AS total FROM loans WHERE deleted_at IS NULL GROUP BY status");
+        // Loan summary — loans table uses 'principle' not 'amount'
+        $r = $conn->query("SELECT status, COUNT(*) AS cnt, SUM(principle) AS total FROM loans WHERE deleted_at IS NULL GROUP BY status");
         if ($r) {
             while ($row = $r->fetch_assoc()) {
-                $lines[] = "Loans [{$row['status']}]: count={$row['cnt']}, total=TZS " . number_format($row['total']);
+                $lines[] = "Loans [{$row['status']}]: count={$row['cnt']}, total=TZS " . number_format((float)($row['total'] ?? 0));
             }
         }
-
-        // Pending loan count
-        $r = $conn->query("SELECT COUNT(*) AS cnt FROM loans WHERE status='pending' AND deleted_at IS NULL");
-        if ($r) { $row = $r->fetch_assoc(); $lines[] = "Pending loan applications: " . ($row['cnt'] ?? 0); }
 
         // Branch count
         $r = $conn->query("SELECT COUNT(*) AS cnt FROM branches WHERE deleted_at IS NULL");
         if ($r) { $row = $r->fetch_assoc(); $lines[] = "Total branches: " . ($row['cnt'] ?? 0); }
 
-        // Recent 5 registered members (for context only — no IDs exposed)
-        $r = $conn->query("SELECT name, created_at FROM members WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 5");
+        // Recent 5 registered members — joined to users for name
+        $r = $conn->query("
+            SELECT u.name, m.created_at
+            FROM members m
+            JOIN users u ON u.id = m.user_id
+            WHERE m.deleted_at IS NULL
+            ORDER BY m.created_at DESC LIMIT 5
+        ");
         if ($r) {
             $recent = [];
             while ($row = $r->fetch_assoc()) { $recent[] = $row['name'] . " (" . substr($row['created_at'], 0, 10) . ")"; }
             if ($recent) $lines[] = "Recently registered members: " . implode(', ', $recent);
         }
 
-        // Loan products
-        $r = $conn->query("SELECT name, interest_rate, max_amount FROM loan_products WHERE status='active' LIMIT 10");
+        // Loan products — table is loan_types
+        $r = $conn->query("SELECT name, interest_rate, max_amount FROM loan_types WHERE status='active' AND deleted_at IS NULL LIMIT 10");
         if ($r) {
             while ($row = $r->fetch_assoc()) {
-                $lines[] = "Loan product: {$row['name']} | Rate: {$row['interest_rate']}% | Max: TZS " . number_format($row['max_amount']);
+                $lines[] = "Loan product: {$row['name']} | Rate: {$row['interest_rate']}% | Max: TZS " . number_format((float)($row['max_amount'] ?? 0));
             }
         }
 
-    // ── ACCOUNTANT (BRANCH) ──────────────────────────────────
-    } elseif ($role === 'accountant' && $level === 'branch') {
+    // ── ACCOUNTANT ───────────────────────────────────────────
+    } elseif ($role === 'accountant') {
 
         // Branch member count
-        $stmt = $conn->prepare("SELECT COUNT(*) AS cnt FROM members WHERE branch_id=? AND deleted_at IS NULL");
+        if ($branchId) {
+            $stmt = $conn->prepare("SELECT COUNT(*) AS cnt FROM members WHERE branch_id=? AND deleted_at IS NULL");
+        } else {
+            $stmt = $conn->prepare("SELECT COUNT(*) AS cnt FROM members WHERE deleted_at IS NULL");
+        }
         if ($stmt) {
-            $stmt->bind_param('i', $branchId);
+            if ($branchId) $stmt->bind_param('i', $branchId);
             $stmt->execute();
-            $row = $stmt->get_result()->fetch_assoc();
+            $row = stmt_fetch_assoc($stmt);
             $lines[] = "Members in your branch: " . ($row['cnt'] ?? 0);
             $stmt->close();
         }
 
-        // Branch loan summary
-        $stmt = $conn->prepare("SELECT status, COUNT(*) AS cnt FROM loans WHERE branch_id=? AND deleted_at IS NULL GROUP BY status");
-        if ($stmt) {
-            $stmt->bind_param('i', $branchId);
-            $stmt->execute();
-            $res = $stmt->get_result();
-            while ($row = $res->fetch_assoc()) {
-                $lines[] = "Branch loans [{$row['status']}]: {$row['cnt']}";
+        // Loan summary for branch
+        if ($branchId) {
+            $stmt = $conn->prepare("SELECT status, COUNT(*) AS cnt FROM loans WHERE branch_id=? AND deleted_at IS NULL GROUP BY status");
+            if ($stmt) {
+                $stmt->bind_param('i', $branchId);
+                $stmt->execute();
+                $rows = stmt_fetch_all($stmt);
+                foreach ($rows as $row) {
+                    $lines[] = "Branch loans [{$row['status']}]: {$row['cnt']}";
+                }
+                $stmt->close();
             }
-            $stmt->close();
+        }
+
+        // Loan products
+        $r = $conn->query("SELECT name, interest_rate, max_amount FROM loan_types WHERE status='active' AND deleted_at IS NULL LIMIT 10");
+        if ($r) {
+            while ($row = $r->fetch_assoc()) {
+                $lines[] = "Loan product: {$row['name']} | Rate: {$row['interest_rate']}% | Max: TZS " . number_format((float)($row['max_amount'] ?? 0));
+            }
         }
 
     // ── MEMBER ────────────────────────────────────────────────
     } elseif ($role === 'member') {
 
-        // Own member record
-        $stmt = $conn->prepare("SELECT m.name, m.member_no, m.phone, b.name AS branch_name FROM members m LEFT JOIN branches b ON b.id=m.branch_id WHERE m.user_id=? LIMIT 1");
+        // Own member record — members.name is in users table
+        $stmt = $conn->prepare("
+            SELECT u.name, m.reg_no, m.phone, b.name AS branch_name
+            FROM members m
+            JOIN users u ON u.id = m.user_id
+            LEFT JOIN branches b ON b.id = m.branch_id
+            WHERE m.user_id=? AND m.deleted_at IS NULL LIMIT 1
+        ");
         if ($stmt) {
             $stmt->bind_param('i', $userId);
             $stmt->execute();
-            $row = $stmt->get_result()->fetch_assoc();
+            $row = stmt_fetch_assoc($stmt);
             if ($row) {
                 $lines[] = "Member name: {$row['name']}";
-                $lines[] = "Member number: {$row['member_no']}";
+                $lines[] = "Member registration number: {$row['reg_no']}";
                 $lines[] = "Branch: {$row['branch_name']}";
             }
             $stmt->close();
         }
 
-        // Own loans
-        $stmt = $conn->prepare("SELECT loan_no, amount, status, created_at FROM loans WHERE user_id=? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 5");
+        // Own loans — column is 'principle' not 'amount', no loan_no column
+        $stmt = $conn->prepare("
+            SELECT l.id, l.principle, l.status, l.created_at, lt.name AS product_name
+            FROM loans l
+            LEFT JOIN loan_types lt ON lt.id = l.loan_type
+            WHERE l.user_id=? AND l.deleted_at IS NULL
+            ORDER BY l.created_at DESC LIMIT 5
+        ");
         if ($stmt) {
             $stmt->bind_param('i', $userId);
             $stmt->execute();
-            $res = $stmt->get_result();
-            while ($row = $res->fetch_assoc()) {
-                $lines[] = "Your loan: No.{$row['loan_no']} | TZS " . number_format($row['amount']) . " | Status: {$row['status']} | Date: " . substr($row['created_at'], 0, 10);
+            $rows = stmt_fetch_all($stmt);
+            foreach ($rows as $row) {
+                $product = $row['product_name'] ?? 'Loan';
+                $lines[] = "Your loan: {$product} | TZS " . number_format((float)($row['principle'] ?? 0)) . " | Status: {$row['status']} | Applied: " . substr($row['created_at'], 0, 10);
             }
             $stmt->close();
         }
 
         // Loan products (public info)
-        $r = $conn->query("SELECT name, interest_rate, max_amount FROM loan_products WHERE status='active' LIMIT 8");
+        $r = $conn->query("SELECT name, interest_rate, max_amount FROM loan_types WHERE status='active' AND deleted_at IS NULL LIMIT 8");
         if ($r) {
             while ($row = $r->fetch_assoc()) {
-                $lines[] = "Available loan: {$row['name']} | Rate: {$row['interest_rate']}% | Max: TZS " . number_format($row['max_amount']);
+                $lines[] = "Available loan product: {$row['name']} | Rate: {$row['interest_rate']}% | Max: TZS " . number_format((float)($row['max_amount'] ?? 0));
+            }
+        }
+
+    } else {
+        // Any other staff role — general context only
+        $r = $conn->query("SELECT name, interest_rate, max_amount FROM loan_types WHERE status='active' AND deleted_at IS NULL LIMIT 8");
+        if ($r) {
+            while ($row = $r->fetch_assoc()) {
+                $lines[] = "Loan product: {$row['name']} | Rate: {$row['interest_rate']}% | Max: TZS " . number_format((float)($row['max_amount'] ?? 0));
             }
         }
     }

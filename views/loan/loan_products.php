@@ -254,3 +254,123 @@
         </div>
     </div>
 </div>
+
+<!-- ══════════════════════════════════════════════════════════
+     SAVINGS MULTIPLIER MANAGER
+     Lets admin set the savings_multiplier either:
+     (a) Same value for ALL loan types at once, or
+     (b) A different value per loan type individually.
+══════════════════════════════════════════════════════════ -->
+<div class="card card-warning mt-4" id="savingsMultiplierCard">
+    <div class="card-header">
+        <h5 class="card-title">
+            <i class="fas fa-times-circle mr-1"></i> Savings Multiplier Manager
+        </h5>
+        <div class="card-tools">
+            <button type="button" class="btn btn-tool" data-card-widget="collapse">
+                <i class="fas fa-minus"></i>
+            </button>
+        </div>
+    </div>
+    <div class="card-body">
+
+        <div class="alert alert-warning">
+            <i class="fas fa-info-circle mr-1"></i>
+            The <strong>savings multiplier</strong> controls the maximum loan a member can get relative to their savings.
+            E.g. multiplier <strong>3×</strong> means a member with TZS 100,000 in savings can borrow up to TZS 300,000.
+            You can set the <em>same multiplier for all products</em>, or adjust each product individually below.
+        </div>
+
+        <!-- Mode tabs -->
+        <ul class="nav nav-tabs mb-3" id="multiplierTabs">
+            <li class="nav-item">
+                <a class="nav-link active" data-toggle="tab" href="#tabSameAll">Same for All Products</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-toggle="tab" href="#tabPerProduct">Set Per Product</a>
+            </li>
+        </ul>
+
+        <div class="tab-content">
+
+            <!-- ── Tab A: Same multiplier for every product ── -->
+            <div class="tab-pane fade show active" id="tabSameAll">
+                <form action="./controllers/loan_controller.php" method="post">
+                    <div class="row align-items-end">
+                        <div class="col-md-4 form-group">
+                            <label class="font-weight-bold">New Multiplier (applies to ALL loan types)</label>
+                            <div class="input-group">
+                                <input type="number" step="0.1" min="0.1" max="100"
+                                       name="global_multiplier" class="form-control"
+                                       value="<?= number_format((float)($products[0]['savings_multiplier'] ?? 3), 1) ?>"
+                                       placeholder="e.g. 3">
+                                <div class="input-group-append">
+                                    <span class="input-group-text">×</span>
+                                </div>
+                            </div>
+                            <small class="text-muted">This will overwrite the multiplier on <strong>every</strong> loan product.</small>
+                        </div>
+                        <div class="col-md-3 form-group">
+                            <button type="submit" name="set_global_savings_multiplier"
+                                    class="btn btn-warning btn-block"
+                                    onclick="return confirm('Apply this multiplier to ALL loan products?')">
+                                <i class="fas fa-check mr-1"></i> Apply to All
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- ── Tab B: Per-product individual multipliers ── -->
+            <div class="tab-pane fade" id="tabPerProduct">
+                <form action="./controllers/loan_controller.php" method="post">
+                    <table class="table table-sm table-bordered">
+                        <thead class="thead-light">
+                            <tr>
+                                <th>Loan Product</th>
+                                <th style="width:180px">Current Multiplier</th>
+                                <th style="width:220px">New Multiplier</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if ($products && is_array($products)): foreach ($products as $p): ?>
+                            <tr>
+                                <td>
+                                    <strong><?= htmlspecialchars($p['name']) ?></strong>
+                                    <input type="hidden" name="product_ids[]" value="<?= (int)$p['id'] ?>">
+                                    <br><small class="text-muted"><?= htmlspecialchars($p['description'] ?? '') ?></small>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge badge-secondary px-2 py-1" style="font-size:14px">
+                                        <?= number_format((float)$p['savings_multiplier'], 2) ?>×
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="input-group input-group-sm">
+                                        <input type="number" step="0.1" min="0.1" max="100"
+                                               name="per_multipliers[]" class="form-control"
+                                               value="<?= number_format((float)$p['savings_multiplier'], 1) ?>">
+                                        <div class="input-group-append">
+                                            <span class="input-group-text">×</span>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <?php endforeach; else: ?>
+                            <tr><td colspan="3" class="text-center text-muted">No loan products yet.</td></tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                    <?php if ($products && is_array($products)): ?>
+                    <button type="submit" name="set_per_product_savings_multiplier"
+                            class="btn btn-primary"
+                            onclick="return confirm('Save individual multipliers for each product?')">
+                        <i class="fas fa-save mr-1"></i> Save Per-Product Multipliers
+                    </button>
+                    <?php endif; ?>
+                </form>
+            </div>
+
+        </div><!-- /.tab-content -->
+    </div>
+</div>

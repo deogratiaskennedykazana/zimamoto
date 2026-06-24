@@ -371,6 +371,60 @@
                 exit;
             }
         }
+
+        // ================================================================
+        //  SAVINGS MULTIPLIER BULK UPDATE
+        // ================================================================
+
+        // (A) Set the SAME multiplier for every loan product
+        if (isset($_POST['set_global_savings_multiplier'])) {
+            $multiplier = (float)($_POST['global_multiplier'] ?? 0);
+            if ($multiplier <= 0) {
+                echo "<script>alert('Multiplier must be greater than 0.'); window.history.back();</script>";
+                exit;
+            }
+            $stmt = $conn->prepare("UPDATE loan_types SET savings_multiplier=?, updated_by=?, updated_at=NOW() WHERE deleted_at IS NULL");
+            if ($stmt) {
+                $updBy = (int)$_SESSION['userid'];
+                $stmt->bind_param('di', $multiplier, $updBy);
+                $stmt->execute();
+                $stmt->close();
+                echo "<script>alert('Savings multiplier set to {$multiplier}× for all loan products.'); window.location.href='../?page=loan_products';</script>";
+            } else {
+                echo "<script>alert('Database error: " . $conn->error . "'); window.history.back();</script>";
+            }
+            exit;
+        }
+
+        // (B) Set a DIFFERENT multiplier per product
+        if (isset($_POST['set_per_product_savings_multiplier'])) {
+            $ids          = array_map('intval', (array)($_POST['product_ids']     ?? []));
+            $multipliers  = array_map('floatval', (array)($_POST['per_multipliers'] ?? []));
+            if (count($ids) !== count($multipliers) || empty($ids)) {
+                echo "<script>alert('No products to update.'); window.history.back();</script>";
+                exit;
+            }
+            $updBy = (int)$_SESSION['userid'];
+            $stmt  = $conn->prepare("UPDATE loan_types SET savings_multiplier=?, updated_by=?, updated_at=NOW() WHERE id=? AND deleted_at IS NULL");
+            if (!$stmt) {
+                echo "<script>alert('Database error: " . $conn->error . "'); window.history.back();</script>";
+                exit;
+            }
+            $errors = [];
+            foreach ($ids as $i => $pid) {
+                $m = $multipliers[$i];
+                if ($m <= 0) { $errors[] = "Product #{$pid}: multiplier must be > 0"; continue; }
+                $stmt->bind_param('dii', $m, $updBy, $pid);
+                if (!$stmt->execute()) $errors[] = "Product #{$pid}: " . $stmt->error;
+            }
+            $stmt->close();
+            if ($errors) {
+                echo "<script>alert('Saved with errors:\n" . implode('\n', $errors) . "'); window.location.href='../?page=loan_products';</script>";
+            } else {
+                echo "<script>alert('Per-product savings multipliers saved successfully.'); window.location.href='../?page=loan_products';</script>";
+            }
+            exit;
+        }
         
         if(isset($_POST['upload_general_loan'])){
     print_r($_POST);
