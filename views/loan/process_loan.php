@@ -320,6 +320,30 @@
             </div>
             <div class=" col-md-5 col-sm-10">
                 <?php if($loanDetails && is_array($loanDetails)): ?>
+                
+                <!-- Original Application Data -->
+                <div class=" card card-info card-outline mb-3">
+                    <div class=" card-header"> <h5>Original Application Details</h5> </div>
+                    <div class=" card-body">
+                        <div class=" row">
+                            <div class=" col-md-6">
+                                <h6><strong>Loan Product:</strong> <?= htmlspecialchars($loanDetails['loan_type_name'] ?? '—') ?></h6>
+                                <h6><strong>Requested Amount:</strong> TZS <?= number_format($loanDetails['principle'], 2) ?></h6>
+                                <h6><strong>Period:</strong> <?= (int)$loanDetails['period'] ?> months</h6>
+                                <h6><strong>Repayment Mode:</strong> <?= htmlspecialchars($loanDetails['repayment_mode'] ?? '—') ?></h6>
+                            </div>
+                            <div class=" col-md-6">
+                                <h6><strong>Application Date:</strong> <?= !empty($loanDetails['created_at']) ? date('d-M-Y', strtotime($loanDetails['created_at'])) : '—' ?></h6>
+                                <h6><strong>Status:</strong> <span class="badge badge-<?= $loanDetails['status'] === 'approved' ? 'success' : ($loanDetails['status'] === 'pending' ? 'warning' : 'danger') ?>"><?= htmlspecialchars($loanDetails['status']) ?></span></h6>
+                                <?php if(!empty($loanDetails['approve_date']) && $loanDetails['status'] === 'approved'): ?>
+                                    <h6><strong>Previously Approved:</strong> <?= date('d-M-Y', strtotime($loanDetails['approve_date'])) ?></h6>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Processing form -->
                 <div class=" card card-primary card-outline">
                     <div class=" card-header"> <h5>Processing form</h5> </div>
                
@@ -328,42 +352,46 @@
                     <input type="hidden" name="user_id" value="<?= $_GET['user_id'] ?>">
                     <input type="hidden" name="branch_id" value="<?= $_GET['branch_id'] ?>">
                     <div class=" card-body">
-                        <div class=" form-group">
-                            <label for="">Amount</label>
-                            <input type="number" name="principle" value="<?= $loanDetails['principle'] ?>" class=" form-control" required id="">
+                        <div class=" alert alert-info">
+                            <i class="fas fa-calculator mr-1"></i>
+                            <strong>Auto Calculation:</strong> Values will recalculate automatically as you modify amount, interest rate, or term.
                         </div>
                         <div class=" form-group">
-                            <label for="">Interest rate</label>
-                            <input type="number" step="any" oninput="calculateRepayment()" name="interest_rate" class=" form-control" required id="">
+                            <label for="principle_input">Amount (TZS)</label>
+                            <input type="number" id="principle_input" name="principle" value="<?= $loanDetails['principle'] ?>" class=" form-control" required oninput="calculateRepayment()">
+                        </div>
+                        <div class=" form-group">
+                            <label for="interest_rate_input">Interest Rate (%)</label>
+                            <input type="number" step="any" id="interest_rate_input" name="interest_rate" class=" form-control" required oninput="calculateRepayment()" placeholder="e.g., 5.5">
                         </div>
 
                         <div class=" form-group">
-                            <label for="">Loan Term (in month) </label>
-                            <input type="number" name="loan_term" value="<?= $loanDetails['period'] ?>"  class=" form-control" required id="">
+                            <label for="loan_term_input">Loan Term (in months) </label>
+                            <input type="number" id="loan_term_input" name="loan_term" value="<?= $loanDetails['period'] ?>"  class=" form-control" required oninput="calculateRepayment()">
                         </div>
                         <div class=" form-group">
-                            <label for="">Interest Amount</label>
-                            <input type="number" name="interest_amount" step="any" class=" form-control" id="">
+                            <label for="interest_amount_input">Interest Amount (TZS)</label>
+                            <input type="number" id="interest_amount_input" name="interest_amount" step="any" class=" form-control" oninput="calculateRepayment()">
                         </div>
                         <div class=" form-group">
-                            <label for="">Repayment Amount</label>
-                            <input type="number" name="repayment_amount" step="any" readonly class=" form-control" id="">
+                            <label for="repayment_amount_output">Monthly Repayment Amount (TZS)</label>
+                            <input type="number" id="repayment_amount_output" name="repayment_amount" step="any" readonly class=" form-control bg-light" style="font-weight: bold; color: #28a745;">
                         </div>
                         <div class=" form-group">
-                            <label for="">Total Loan (principle + Interest)</label>
-                            <input type="number" name="total_loan" step="any" readonly class=" form-control" id="">
+                            <label for="total_loan_output">Total Loan (Principal + Interest)</label>
+                            <input type="number" id="total_loan_output" name="total_loan" step="any" readonly class=" form-control bg-light" style="font-weight: bold; color: #007bff;">
                         </div>
                         <div class=" form-group">
-                            <label for="">Approve Date</label>
-                            <input type="date" name="approve_date" value="<?= date('Y-m-d') ?>" max="<?= date('Y-m-d') ?>"  required class=" form-control" id="">
+                            <label for="approve_date_input">Approve Date</label>
+                            <input type="date" id="approve_date_input" name="approve_date" value="<?= date('Y-m-d') ?>" max="<?= date('Y-m-d') ?>"  required class=" form-control">
                         </div>
                         <div class=" form-group">
-                            <label for="">Approved BY</label>
-                            <input type="text" name="approved_by" value="<?= $_SESSION['username'] ?>" class=" form-control" id="">
+                            <label for="approved_by_input">Approved BY</label>
+                            <input type="text" id="approved_by_input" name="approved_by" value="<?= $_SESSION['username'] ?>" class=" form-control">
                         </div>
                 </div>
                 <div class=" card-footer">
-                    <button type="submit" class=" btn btn-sm btn-block btn-primary" name="approve_loan">Aprrove Loan</button>
+                    <button type="submit" class=" btn btn-sm btn-block btn-primary" name="approve_loan">Approve Loan</button>
                 </div>
                 </form>
                  </div>
@@ -398,3 +426,45 @@
     </div>
     </div>
 </div>
+
+<!-- Real-time Loan Calculation JavaScript -->
+<script>
+/**
+ * Calculate loan repayment amounts in real-time
+ * Recalculates whenever any of these change:
+ * - Principal amount
+ * - Interest rate
+ * - Loan term (months)
+ * - Interest amount
+ */
+function calculateRepayment() {
+    // Get input values
+    const principle = parseFloat(document.getElementById('principle_input').value) || 0;
+    const interestRate = parseFloat(document.getElementById('interest_rate_input').value) || 0;
+    const loanTerm = parseFloat(document.getElementById('loan_term_input').value) || 1;
+    const interestAmount = parseFloat(document.getElementById('interest_amount_input').value) || 0;
+    
+    // Calculate total interest if not provided
+    let finalInterestAmount = interestAmount;
+    if (interestAmount === 0 && interestRate > 0) {
+        // Simple interest calculation: Principal × Rate × Time / 100
+        finalInterestAmount = (principle * interestRate * loanTerm) / 100;
+    }
+    
+    // Update interest amount display
+    document.getElementById('interest_amount_input').value = finalInterestAmount.toFixed(2);
+    
+    // Calculate total loan (principal + interest)
+    const totalLoan = principle + finalInterestAmount;
+    document.getElementById('total_loan_output').value = totalLoan.toFixed(2);
+    
+    // Calculate monthly repayment (total loan / number of months)
+    const monthlyRepayment = loanTerm > 0 ? totalLoan / loanTerm : 0;
+    document.getElementById('repayment_amount_output').value = monthlyRepayment.toFixed(2);
+}
+
+// Initialize calculations on page load
+document.addEventListener('DOMContentLoaded', function() {
+    calculateRepayment();
+});
+</script>

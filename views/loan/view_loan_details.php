@@ -21,6 +21,19 @@
                         echo "<h5> Interest:". number_format( $loan['interest_amount'],2) ." </h5>";
                         echo "<h5> Interest Rate: $loan[interest_rate]%</h5>";
                         echo "<h5> Period: $loan[period] (months) </h5>";
+                        echo "<h5> Status: <span class='badge badge-" . ($loan['status'] === 'approved' ? 'success' : ($loan['status'] === 'pending' ? 'warning' : 'danger')) . "'>" . htmlspecialchars($loan['status']) . "</span></h5>";
+                        if(!empty($loan['created_at'])){
+                            echo "<h5> Application Date: " . date('d-M-Y', strtotime($loan['created_at'])) . "</h5>";
+                        }
+                        if(!empty($loan['approve_date']) && $loan['status'] === 'approved'){
+                            echo "<h5> Approval Date: " . date('d-M-Y', strtotime($loan['approve_date'])) . "</h5>";
+                        }
+                        if(!empty($loan['reviewed_by'])){
+                            echo "<h5> Reviewed By: " . htmlspecialchars($loan['reviewed_by']) . "</h5>";
+                        }
+                        if(!empty($loan['loan_type_name'])){
+                            echo "<h5> Loan Product: " . htmlspecialchars($loan['loan_type_name']) . "</h5>";
+                        }
                     }
             ?>
         </div>

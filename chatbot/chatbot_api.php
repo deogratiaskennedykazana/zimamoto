@@ -263,6 +263,20 @@ if (!$result['ok']) {
                 $result   = $fallbackResult;
             }
         }
+    } elseif ($provider === 'gemini') {
+        $geminiError = strtolower((string)$result['log_error']);
+        $retryable = str_contains($geminiError, 'high demand')
+                   || str_contains($geminiError, 'timed out')
+                   || str_contains($geminiError, 'could not reach ai service');
+
+        if ($retryable && $geminiModel !== 'gemini-3.1-flash-lite') {
+            error_log('chatbot_api: retrying Gemini with gemini-3.1-flash-lite due to transient error');
+            $retryResult = callGeminiApi($geminiApiKey, 'gemini-3.1-flash-lite', $systemPrompt, $history);
+            if ($retryResult['ok']) {
+                $model  = 'gemini-3.1-flash-lite';
+                $result = $retryResult;
+            }
+        }
     }
 }
 
