@@ -132,7 +132,10 @@ if (count($_SESSION['chatbot_rate']) >= 15) {
 $_SESSION['chatbot_rate'][] = $now;
 
 // ── 7. Load chatbot settings ──────────────────────────────────
-$settingsResult = $conn->query("SELECT enabled, api_key, model, allowed_roles FROM chatbot_settings LIMIT 1");
+$settingsResult = $conn->query(
+    "SELECT enabled, provider, api_key, model, grok_api_key, grok_model, allowed_roles
+     FROM chatbot_settings LIMIT 1"
+);
 $settingsRow    = $settingsResult ? $settingsResult->fetch_assoc() : null;
 
 if (!is_array($settingsRow) || empty($settingsRow['enabled'])) {
@@ -154,17 +157,38 @@ if (empty($allowedRolesList) || !in_array($userRole, $allowedRolesList, true)) {
     exit;
 }
 
-// ── 9. Validate API key ───────────────────────────────────────
-$geminiApiKey = trim((string)($settingsRow['api_key'] ?? ''));
-$geminiModel  = trim((string)($settingsRow['model']   ?? 'gemini-1.5-flash'));
-
-// Whitelist model names to prevent injection
-$allowedModels = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash-exp'];
-if (!in_array($geminiModel, $allowedModels, true)) {
-    $geminiModel = 'gemini-1.5-flash';
+// ── 9. Determine provider and validate the matching API key ───
+$provider = strtolower(trim((string)($settingsRow['provider'] ?? 'gemini')));
+if (!in_array($provider, ['gemini', 'grok'], true)) {
+    $provider = 'gemini'; // unknown value in DB — fail safe to default
 }
 
-if ($geminiApiKey === '') {
+if ($provider === 'grok') {
+    $apiKey = trim((string)($settingsRow['grok_api_key'] ?? ''));
+    $model  = trim((string)($settingsRow['grok_model']   ?? 'grok-4.3'));
+
+    // Whitelist model names to prevent injection.
+    // grok-4.3 is xAI's current flagship as of Jun 2026; older slugs
+    // (grok-4, grok-3, grok-4-fast-*, grok-code-fast-1, etc.) are
+    // auto-redirected by xAI but we standardise on the canonical name.
+    $allowedModels = ['grok-4.3'];
+    if (!in_array($model, $allowedModels, true)) {
+        $model = 'grok-4.3';
+    }
+} else {
+    $apiKey = trim((string)($settingsRow['api_key'] ?? ''));
+    $model  = trim((string)($settingsRow['model']   ?? 'gemini-3.5-flash'));
+
+    // Whitelist model names to prevent injection.
+    // NOTE (Jun 2026): the gemini-1.5-* and gemini-2.0-* lines have been
+    // fully shut down by Google and always 404. Current generation below.
+    $allowedModels = ['gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-3.1-pro-preview'];
+    if (!in_array($model, $allowedModels, true)) {
+        $model = 'gemini-3.5-flash';
+    }
+}
+
+if ($apiKey === '') {
     ob_end_clean();
     echo json_encode(['error' => 'Chatbot is not configured (no API key). Contact the administrator.']);
     exit;
@@ -194,45 +218,22 @@ $navMap = getNavMap($userRole);
 $systemPrompt = buildSystemPrompt($userName, $userRole, $userLevel, $contextData, $navMap);
 
 // ── 15. Conversation history (session-stored, capped at 20) ───
+// Stored internally in a provider-agnostic shape: [{role, text}, ...]
+// role is 'user' or 'model'. normalizeHistoryEntry() also tolerates
+// the older Gemini-native shape so any history already sitting in an
+// active session at deploy time doesn't crash on next use.
 if (!isset($_SESSION['chatbot_history']) || !is_array($_SESSION['chatbot_history'])) {
     $_SESSION['chatbot_history'] = [];
 }
-$history   = $_SESSION['chatbot_history'];
-$history[] = ['role' => 'user', 'parts' => [['text' => $userMessage]]];
+$history   = array_map('normalizeHistoryEntry', $_SESSION['chatbot_history']);
+$history[] = ['role' => 'user', 'text' => $userMessage];
 
 // Keep last 20 entries (10 turns) to stay within token budget
 if (count($history) > 20) {
     $history = array_slice($history, -20);
 }
 
-// ── 16. Call Gemini API ───────────────────────────────────────
-$geminiUrl = "https://generativelanguage.googleapis.com/v1beta/models/"
-           . urlencode($geminiModel)
-           . ":generateContent?key=" . urlencode($geminiApiKey);
-
-$requestPayload = [
-    'system_instruction' => ['parts' => [['text' => $systemPrompt]]],
-    'contents'           => $history,
-    'generationConfig'   => [
-        'maxOutputTokens' => 800,
-        'temperature'     => 0.3,
-    ],
-    'safetySettings' => [
-        ['category' => 'HARM_CATEGORY_HARASSMENT',        'threshold' => 'BLOCK_MEDIUM_AND_ABOVE'],
-        ['category' => 'HARM_CATEGORY_HATE_SPEECH',       'threshold' => 'BLOCK_MEDIUM_AND_ABOVE'],
-        ['category' => 'HARM_CATEGORY_SEXUALLY_EXPLICIT', 'threshold' => 'BLOCK_MEDIUM_AND_ABOVE'],
-        ['category' => 'HARM_CATEGORY_DANGEROUS_CONTENT', 'threshold' => 'BLOCK_MEDIUM_AND_ABOVE'],
-    ],
-];
-
-$requestBody = json_encode($requestPayload);
-if ($requestBody === false) {
-    ob_end_clean();
-    logAudit($conn, $userId, $userRole, $userMessage, 'error', null);
-    echo json_encode(['error' => 'Failed to build request. Please try again.']);
-    exit;
-}
-
+// ── 16. Call the selected AI provider ──────────────────────────
 if (!function_exists('curl_init')) {
     ob_end_clean();
     logAudit($conn, $userId, $userRole, $userMessage, 'error', null);
@@ -240,70 +241,21 @@ if (!function_exists('curl_init')) {
     exit;
 }
 
-$ch = curl_init($geminiUrl);
-curl_setopt_array($ch, [
-    CURLOPT_RETURNTRANSFER => true,
-    CURLOPT_POST           => true,
-    CURLOPT_POSTFIELDS     => $requestBody,
-    CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
-    CURLOPT_TIMEOUT        => 30,
-    CURLOPT_CONNECTTIMEOUT => 10,
-    CURLOPT_SSL_VERIFYPEER => true,
-    CURLOPT_SSL_VERIFYHOST => 2,
-]);
+$result = ($provider === 'grok')
+    ? callGrokApi($apiKey, $model, $systemPrompt, $history)
+    : callGeminiApi($apiKey, $model, $systemPrompt, $history);
 
-$geminiRaw  = curl_exec($ch);
-$curlErr    = curl_error($ch);
-$httpCode   = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-curl_close($ch);
-
-if ($curlErr !== '' || $geminiRaw === false) {
+if (!$result['ok']) {
+    if ($result['log_error'] !== null) {
+        error_log("chatbot_api: {$provider} API error - " . $result['log_error']);
+    }
     ob_end_clean();
-    error_log('chatbot_api: cURL error - ' . $curlErr);
     logAudit($conn, $userId, $userRole, $userMessage, 'error', null);
-    echo json_encode(['error' => 'Could not reach AI service. Please try again.']);
+    echo json_encode(['error' => $result['safe_error']]);
     exit;
 }
 
-// ── 17. Parse Gemini response ─────────────────────────────────
-$geminiResp = json_decode((string)$geminiRaw, true);
-
-if (!is_array($geminiResp)) {
-    ob_end_clean();
-    logAudit($conn, $userId, $userRole, $userMessage, 'error', null);
-    echo json_encode(['error' => 'Unexpected response from AI service.']);
-    exit;
-}
-
-// Gemini API-level error (e.g. invalid key, quota exceeded)
-if (isset($geminiResp['error'])) {
-    $apiErrMsg = (string)($geminiResp['error']['message'] ?? 'API error');
-    error_log('chatbot_api: Gemini API error - ' . $apiErrMsg);
-    ob_end_clean();
-    logAudit($conn, $userId, $userRole, $userMessage, 'error', null);
-    // Sanitise: don't leak the raw API error message to users
-    $safeMsg = (strpos($apiErrMsg, 'quota') !== false || $httpCode === 429)
-             ? 'Daily AI request limit reached. Please try again tomorrow.'
-             : 'AI service error. Please try again later.';
-    echo json_encode(['error' => $safeMsg]);
-    exit;
-}
-
-// Extract reply text
-$replyText = $geminiResp['candidates'][0]['content']['parts'][0]['text'] ?? null;
-
-if ($replyText === null || trim($replyText) === '') {
-    $finishReason = (string)($geminiResp['candidates'][0]['finishReason'] ?? 'UNKNOWN');
-    ob_end_clean();
-    logAudit($conn, $userId, $userRole, $userMessage, 'error', null);
-    $safeMsg = ($finishReason === 'SAFETY')
-             ? 'That message was blocked by the safety filter. Please rephrase.'
-             : 'AI could not generate a response. Please try again.';
-    echo json_encode(['error' => $safeMsg]);
-    exit;
-}
-
-$replyText = (string)$replyText;
+$replyText = (string)$result['reply'];
 
 // ── 18. Detect and strip navigation intent token ──────────────
 $navigateTo = null;
@@ -322,7 +274,7 @@ if (preg_match('/\[NAVIGATE:([a-zA-Z0-9_]{1,80})\]/', $replyText, $navMatch)) {
 }
 
 // ── 19. Persist history ───────────────────────────────────────
-$history[]                   = ['role' => 'model', 'parts' => [['text' => $replyText]]];
+$history[]                   = ['role' => 'model', 'text' => $replyText];
 $_SESSION['chatbot_history'] = array_slice($history, -20);
 
 // ── 20. Audit log ─────────────────────────────────────────────
@@ -344,6 +296,186 @@ exit;
 // ═════════════════════════════════════════════════════════════
 //  HELPER FUNCTIONS
 // ═════════════════════════════════════════════════════════════
+
+/**
+ * Normalise a session-stored history entry to the internal
+ * provider-agnostic shape: ['role' => 'user'|'model', 'text' => string].
+ * Tolerates the old Gemini-native shape (role + parts[0].text) so any
+ * history already in an active session at deploy time doesn't crash.
+ */
+function normalizeHistoryEntry($entry): array
+{
+    if (!is_array($entry)) {
+        return ['role' => 'user', 'text' => ''];
+    }
+    $role = (string)($entry['role'] ?? 'user');
+    if (isset($entry['text'])) {
+        $text = (string)$entry['text'];
+    } else {
+        // Old Gemini-native shape: ['role' => ..., 'parts' => [['text' => ...]]]
+        $text = (string)($entry['parts'][0]['text'] ?? '');
+    }
+    return ['role' => $role, 'text' => $text];
+}
+
+/**
+ * POST JSON to a URL and return the raw response, curl error, and HTTP
+ * status code. Shared by every provider so timeout/SSL settings stay
+ * consistent in one place.
+ */
+function httpPostJson(string $url, array $headers, string $body): array
+{
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => $body,
+        CURLOPT_HTTPHEADER     => $headers,
+        CURLOPT_TIMEOUT        => 30,
+        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_SSL_VERIFYHOST => 2,
+    ]);
+
+    $raw      = curl_exec($ch);
+    $curlErr  = curl_error($ch);
+    $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    return ['raw' => $raw, 'curl_error' => $curlErr, 'http_code' => $httpCode];
+}
+
+/**
+ * Call Google Gemini's generateContent endpoint.
+ * Returns a normalised result: ['ok', 'reply', 'safe_error', 'log_error'].
+ */
+function callGeminiApi(string $apiKey, string $model, string $systemPrompt, array $history): array
+{
+    $fail = fn(string $safe, ?string $log = null) =>
+        ['ok' => false, 'reply' => null, 'safe_error' => $safe, 'log_error' => $log];
+
+    $contents = array_map(
+        fn($h) => ['role' => $h['role'], 'parts' => [['text' => $h['text']]]],
+        $history
+    );
+
+    $url = "https://generativelanguage.googleapis.com/v1beta/models/"
+         . urlencode($model) . ":generateContent?key=" . urlencode($apiKey);
+
+    $payload = [
+        'system_instruction' => ['parts' => [['text' => $systemPrompt]]],
+        'contents'           => $contents,
+        'generationConfig'   => ['maxOutputTokens' => 800, 'temperature' => 0.3],
+        'safetySettings'     => [
+            ['category' => 'HARM_CATEGORY_HARASSMENT',        'threshold' => 'BLOCK_MEDIUM_AND_ABOVE'],
+            ['category' => 'HARM_CATEGORY_HATE_SPEECH',       'threshold' => 'BLOCK_MEDIUM_AND_ABOVE'],
+            ['category' => 'HARM_CATEGORY_SEXUALLY_EXPLICIT', 'threshold' => 'BLOCK_MEDIUM_AND_ABOVE'],
+            ['category' => 'HARM_CATEGORY_DANGEROUS_CONTENT', 'threshold' => 'BLOCK_MEDIUM_AND_ABOVE'],
+        ],
+    ];
+
+    $body = json_encode($payload);
+    if ($body === false) {
+        return $fail('Failed to build request. Please try again.');
+    }
+
+    $res = httpPostJson($url, ['Content-Type: application/json'], $body);
+    if ($res['curl_error'] !== '' || $res['raw'] === false) {
+        return $fail('Could not reach AI service. Please try again.', $res['curl_error']);
+    }
+
+    $resp = json_decode((string)$res['raw'], true);
+    if (!is_array($resp)) {
+        return $fail('Unexpected response from AI service.', 'non-JSON response: ' . substr((string)$res['raw'], 0, 300));
+    }
+
+    if (isset($resp['error'])) {
+        $apiErrMsg = (string)($resp['error']['message'] ?? 'API error');
+        $safe = (strpos($apiErrMsg, 'quota') !== false || $res['http_code'] === 429)
+              ? 'Daily AI request limit reached. Please try again tomorrow.'
+              : 'AI service error. Please try again later.';
+        return $fail($safe, $apiErrMsg);
+    }
+
+    $replyText = $resp['candidates'][0]['content']['parts'][0]['text'] ?? null;
+    if ($replyText === null || trim((string)$replyText) === '') {
+        $finishReason = (string)($resp['candidates'][0]['finishReason'] ?? 'UNKNOWN');
+        $safe = ($finishReason === 'SAFETY')
+              ? 'That message was blocked by the safety filter. Please rephrase.'
+              : 'AI could not generate a response. Please try again.';
+        return $fail($safe, "empty reply, finishReason={$finishReason}");
+    }
+
+    return ['ok' => true, 'reply' => (string)$replyText, 'safe_error' => null, 'log_error' => null];
+}
+
+/**
+ * Call xAI's Grok via the OpenAI-compatible chat completions endpoint.
+ * Returns a normalised result: ['ok', 'reply', 'safe_error', 'log_error'].
+ */
+function callGrokApi(string $apiKey, string $model, string $systemPrompt, array $history): array
+{
+    $fail = fn(string $safe, ?string $log = null) =>
+        ['ok' => false, 'reply' => null, 'safe_error' => $safe, 'log_error' => $log];
+
+    $messages = [['role' => 'system', 'content' => $systemPrompt]];
+    foreach ($history as $h) {
+        $messages[] = [
+            'role'    => $h['role'] === 'model' ? 'assistant' : 'user',
+            'content' => $h['text'],
+        ];
+    }
+
+    $url = 'https://api.x.ai/v1/chat/completions';
+
+    $payload = [
+        'model'       => $model,
+        'messages'    => $messages,
+        'max_tokens'  => 800,
+        'temperature' => 0.3,
+    ];
+
+    $body = json_encode($payload);
+    if ($body === false) {
+        return $fail('Failed to build request. Please try again.');
+    }
+
+    $res = httpPostJson($url, [
+        'Content-Type: application/json',
+        'Authorization: Bearer ' . $apiKey,
+    ], $body);
+
+    if ($res['curl_error'] !== '' || $res['raw'] === false) {
+        return $fail('Could not reach AI service. Please try again.', $res['curl_error']);
+    }
+
+    $resp = json_decode((string)$res['raw'], true);
+    if (!is_array($resp)) {
+        return $fail('Unexpected response from AI service.', 'non-JSON response: ' . substr((string)$res['raw'], 0, 300));
+    }
+
+    if (isset($resp['error'])) {
+        // xAI error shape varies: can be a string or an object with 'message'/'code'
+        $err       = $resp['error'];
+        $apiErrMsg = is_array($err) ? (string)($err['message'] ?? 'API error') : (string)$err;
+        $safe = (stripos($apiErrMsg, 'quota') !== false || stripos($apiErrMsg, 'rate limit') !== false || $res['http_code'] === 429)
+              ? 'Daily AI request limit reached. Please try again tomorrow.'
+              : 'AI service error. Please try again later.';
+        return $fail($safe, $apiErrMsg);
+    }
+
+    $replyText    = $resp['choices'][0]['message']['content'] ?? null;
+    $finishReason = (string)($resp['choices'][0]['finish_reason'] ?? 'unknown');
+
+    if ($replyText === null || trim((string)$replyText) === '') {
+        $safe = ($finishReason === 'content_filter')
+              ? 'That message was blocked by the safety filter. Please rephrase.'
+              : 'AI could not generate a response. Please try again.';
+        return $fail($safe, "empty reply, finish_reason={$finishReason}");
+    }
+
+    return ['ok' => true, 'reply' => (string)$replyText, 'safe_error' => null, 'log_error' => null];
+}
 
 /**
  * Build a role-scoped data context for the system prompt.
