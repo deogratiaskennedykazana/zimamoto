@@ -158,34 +158,38 @@ if (empty($allowedRolesList) || !in_array($userRole, $allowedRolesList, true)) {
 }
 
 // ── 9. Determine provider and validate the matching API key ───
-$provider = strtolower(trim((string)($settingsRow['provider'] ?? 'gemini')));
+$provider         = strtolower(trim((string)($settingsRow['provider'] ?? 'gemini')));
+$originalProvider = $provider;
 if (!in_array($provider, ['gemini', 'grok'], true)) {
     $provider = 'gemini'; // unknown value in DB — fail safe to default
 }
 
+$geminiApiKey  = trim((string)($settingsRow['api_key'] ?? ''));
+$geminiModel   = trim((string)($settingsRow['model']   ?? 'gemini-3.5-flash'));
+$grokApiKey    = trim((string)($settingsRow['grok_api_key'] ?? ''));
+$grokModel     = trim((string)($settingsRow['grok_model']   ?? 'grok-4.3'));
+
+$allowedGeminiModels = ['gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-3.1-pro-preview'];
+if (!in_array($geminiModel, $allowedGeminiModels, true)) {
+    $geminiModel = 'gemini-3.5-flash';
+}
+
+$allowedGrokModels = ['grok-4.3'];
+if (!in_array($grokModel, $allowedGrokModels, true)) {
+    $grokModel = 'grok-4.3';
+}
+
+if ($provider === 'grok' && $grokApiKey === '') {
+    error_log('chatbot_api: grok selected but no grok_api_key configured, falling back to gemini');
+    $provider = 'gemini';
+}
+
 if ($provider === 'grok') {
-    $apiKey = trim((string)($settingsRow['grok_api_key'] ?? ''));
-    $model  = trim((string)($settingsRow['grok_model']   ?? 'grok-4.3'));
-
-    // Whitelist model names to prevent injection.
-    // grok-4.3 is xAI's current flagship as of Jun 2026; older slugs
-    // (grok-4, grok-3, grok-4-fast-*, grok-code-fast-1, etc.) are
-    // auto-redirected by xAI but we standardise on the canonical name.
-    $allowedModels = ['grok-4.3'];
-    if (!in_array($model, $allowedModels, true)) {
-        $model = 'grok-4.3';
-    }
+    $apiKey = $grokApiKey;
+    $model  = $grokModel;
 } else {
-    $apiKey = trim((string)($settingsRow['api_key'] ?? ''));
-    $model  = trim((string)($settingsRow['model']   ?? 'gemini-3.5-flash'));
-
-    // Whitelist model names to prevent injection.
-    // NOTE (Jun 2026): the gemini-1.5-* and gemini-2.0-* lines have been
-    // fully shut down by Google and always 404. Current generation below.
-    $allowedModels = ['gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-3.1-pro-preview'];
-    if (!in_array($model, $allowedModels, true)) {
-        $model = 'gemini-3.5-flash';
-    }
+    $apiKey = $geminiApiKey;
+    $model  = $geminiModel;
 }
 
 if ($apiKey === '') {
@@ -244,6 +248,23 @@ if (!function_exists('curl_init')) {
 $result = ($provider === 'grok')
     ? callGrokApi($apiKey, $model, $systemPrompt, $history)
     : callGeminiApi($apiKey, $model, $systemPrompt, $history);
+
+if (!$result['ok']) {
+    if ($result['log_error'] !== null) {
+        error_log("chatbot_api: {$provider} API error - " . $result['log_error']);
+    }
+
+    if ($provider === 'grok') {
+        error_log('chatbot_api: falling back to Gemini after Grok failure');
+        if ($geminiApiKey !== '') {
+            $fallbackResult = callGeminiApi($geminiApiKey, $geminiModel, $systemPrompt, $history);
+            if ($fallbackResult['ok']) {
+                $provider = 'gemini';
+                $result   = $fallbackResult;
+            }
+        }
+    }
+}
 
 if (!$result['ok']) {
     if ($result['log_error'] !== null) {
