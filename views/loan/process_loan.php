@@ -340,6 +340,57 @@
                                 <?php endif; ?>
                             </div>
                         </div>
+
+                        <!-- Documents Section -->
+                        <hr class="my-3">
+                        <div class=" row">
+                            <div class=" col-md-12">
+                                <h6><strong><i class="fas fa-file-pdf mr-1"></i> Supporting Documents</strong></h6>
+                            </div>
+                        </div>
+                        
+                        <?php
+                        $loanId = (int) $_GET['loan_id'];
+                        $hasDocuments = false;
+                        
+                        // Display Salary Slip if salary mode
+                        if($loanDetails['repayment_mode'] == 'salary'):
+                            $salaryDetails = selectLoanSalaryDetails($conn, $loanId);
+                            if($salaryDetails && is_array($salaryDetails)):
+                                $hasDocuments = true;
+                                echo "<div class=' col-md-6 mb-2'>";
+                                echo "<h6><strong>Basic Salary:</strong> TZS " . number_format($salaryDetails['basic_salary'], 2) . "</h6>";
+                                echo "<h6><strong>Take Home:</strong> TZS " . number_format($salaryDetails['take_home'], 2) . "</h6>";
+                                if(!empty($salaryDetails['salary_slip_file'])):
+                                    $attachmentUrl = "./?page=review_attachments&id=" . $loanId . "&name=" . urlencode($salaryDetails['salary_slip_file']) . "&repayment_mode=salary";
+                                    echo "<h6><a href='$attachmentUrl' class='btn btn-sm btn-outline-primary' target='_blank'><i class='fas fa-download mr-1'></i>Download Salary Slip</a></h6>";
+                                else:
+                                    echo "<h6><span class='badge badge-warning'><i class='fas fa-exclamation-triangle mr-1'></i>No salary slip uploaded</span></h6>";
+                                endif;
+                                echo "</div>";
+                            endif;
+                        endif;
+                        
+                        // Display Standing Order if standing order mode
+                        if($loanDetails['repayment_mode'] == 'standing_order'):
+                            $standingOrderDetails = selectLoanStandingOrderDetails($conn, $loanId);
+                            if($standingOrderDetails && is_array($standingOrderDetails)):
+                                $hasDocuments = true;
+                                echo "<div class=' col-md-6 mb-2'>";
+                                if(!empty($standingOrderDetails['standing_order_file'])):
+                                    $attachmentUrl = "./?page=review_attachments&id=" . $loanId . "&name=" . urlencode($standingOrderDetails['standing_order_file']) . "&repayment_mode=standing_order";
+                                    echo "<h6><a href='$attachmentUrl' class='btn btn-sm btn-outline-primary' target='_blank'><i class='fas fa-download mr-1'></i>Download Standing Order</a></h6>";
+                                else:
+                                    echo "<h6><span class='badge badge-warning'><i class='fas fa-exclamation-triangle mr-1'></i>No standing order document uploaded</span></h6>";
+                                endif;
+                                echo "</div>";
+                            endif;
+                        endif;
+                        
+                        if(!$hasDocuments):
+                            echo "<div class='col-md-12 mb-2'><span class='badge badge-secondary'><i class='fas fa-info-circle mr-1'></i>No documents available for this loan</span></div>";
+                        endif;
+                        ?>
                     </div>
                 </div>
 
