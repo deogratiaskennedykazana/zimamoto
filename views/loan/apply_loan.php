@@ -135,9 +135,9 @@ function showLoanConditions(id){
     for(var i=0;i<loanTypesData.length;i++){ if(String(loanTypesData[i].id) === String(id)){ lt = loanTypesData[i]; break; } }
     if(!lt){ box.style.display = 'none'; return; }
     var maxText = parseFloat(lt.max_amount) > 0 ? Number(lt.max_amount).toLocaleString() : 'no fixed cap (savings-based)';
-    var html = '<strong>' + lt.name + ' — Conditions</strong><ul class="mb-0">' +
-        '<li>Amount: TZS ' + Number(lt.min_amount).toLocaleString() + ' – ' + maxText + '</li>' +
-        '<li>Repayment period: ' + lt.min_period + ' – ' + lt.max_period + ' months</li>' +
+    var html = '<strong>' + lt.name + ' \u2014 Conditions</strong><ul class="mb-0">' +
+        '<li>Amount: TZS ' + Number(lt.min_amount).toLocaleString() + ' \u2013 ' + maxText + '</li>' +
+        '<li>Repayment period: ' + lt.min_period + ' \u2013 ' + lt.max_period + ' months</li>' +
         '<li>Interest rate: ' + lt.interest_rate + '% per year</li>' +
         '<li>Required guarantors: ' + lt.required_grantors + '</li>' +
         '<li>Max eligible amount is up to ' + lt.savings_multiplier + 'x the member\'s total savings</li>' +
@@ -145,6 +145,8 @@ function showLoanConditions(id){
         '</ul>';
     box.innerHTML = html;
     box.style.display = 'block';
+    // Re-run capacity with the newly selected loan type's multiplier
+    setLoanCapacity();
 }
 </script>
 

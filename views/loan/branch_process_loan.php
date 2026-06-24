@@ -5,16 +5,30 @@
     <div class=" card-body">
          <div class=" card-body">
         <?php
-            $userDetails = selectUserById($conn, (int) $_GET['user_id']);
+            $userDetails = null;
+            try {
+                $userDetails = selectUserById($conn, (int) $_GET['user_id']);
+            } catch (\Throwable $e) {
+                error_log('selectUserById failed for user_id=' . ((int) $_GET['user_id']) . ': ' . $e->getMessage());
+            }
             if($userDetails && is_array($userDetails)){
                 echo "<h4>Name: {$userDetails['name']}</h4>";
-               echo "<h4>Branch: $userDetails[branch_name] </h4>";
+                echo "<h4>Branch: $userDetails[branch_name] </h4>";
+            } else {
+                echo '<div class="alert alert-light border mb-2"><small class="text-muted">Member name/branch unavailable.</small></div>';
             }
-            $loanDetails = selectLoanById($conn, (int) $_GET['loan_id']);
+            $loanDetails = null;
+            try {
+                $loanDetails = selectLoanById($conn, (int) $_GET['loan_id']);
+            } catch (\Throwable $e) {
+                error_log('selectLoanById failed for loan_id=' . ((int) $_GET['loan_id']) . ': ' . $e->getMessage());
+            }
             if($loanDetails && is_array($loanDetails)){
                 echo "<h4> Loan Principle Requested: ". number_format( $loanDetails['principle'],2) ." </h4>";
-               
                 echo "<h4> Period: $loanDetails[period] (months) </h4>";
+            } else {
+                $loanId = (int) $_GET['loan_id'];
+                echo '<div class="alert alert-danger mb-0"><i class="fas fa-exclamation-circle mr-1"></i> This loan application (#' . $loanId . ') could not be loaded.</div>';
             }
         ?>
     </div>
@@ -26,11 +40,16 @@
 
                     <h5>Member`s Details</h5>
                     <?php
-                            $memberDetails = selectMemberByUserId($conn, (int) $_GET['user_id']);
+                            $memberDetails = null;
+                            try {
+                                $memberDetails = selectMemberByUserId($conn, (int) $_GET['user_id']);
+                            } catch (\Throwable $e) {
+                                error_log('selectMemberByUserId failed for user_id=' . ((int) $_GET['user_id']) . ': ' . $e->getMessage());
+                            }
                             if($memberDetails && is_array($memberDetails)){
                                 // print_r($memberDetails);
                                 ?>
-                                    <h4>Names:<?= $userDetails['name'] ?></h4>
+                                    <h4>Names:<?= htmlspecialchars($userDetails['name'] ?? ($memberDetails['name'] ?? '—')) ?></h4>
                                     <h4> Branch: <?= $memberDetails['branch'] ?></h4>
                                     <h4>Gender: <?= $memberDetails['gender'] ?> </h4>
                                     <h4>Phone: <?= $memberDetails['phone'] ?> </h4>
@@ -51,7 +70,13 @@
                                         <td>Balance</td>
                                     </tr>
                                     <?php
-                                        $accounts = selectMinSubsByUserId($conn, (int) $_GET['user_id']);
+                                        $accounts = [];
+                                        try {
+                                            $accounts = selectMinSubsByUserId($conn, (int) $_GET['user_id']);
+                                        } catch (\Throwable $e) {
+                                            error_log('selectMinSubsByUserId failed for user_id=' . ((int) $_GET['user_id']) . ': ' . $e->getMessage());
+                                            $accounts = [];
+                                        }
                                         if($accounts && is_array($accounts)){
                                             $counter =1;
                                             foreach($accounts as $account){
@@ -59,7 +84,12 @@
                                                 echo "<tr>";
                                                     echo "<td>$counter</td>";
                                                     echo "<td>$account[name]</td>";
-                                                   $minTransactions = getMinTransactionByMinSubId($conn, $account['id']);
+                                                   try {
+                                                       $minTransactions = getMinTransactionByMinSubId($conn, $account['id']);
+                                                   } catch (\Throwable $e) {
+                                                       error_log('getMinTransactionByMinSubId failed for min_sub_id=' . $account['id'] . ': ' . $e->getMessage());
+                                                       $minTransactions = [];
+                                                   }
                                                    if($minTransactions && is_array($minTransactions)){
                                                        foreach($minTransactions as $minTransaction){
                                                            if($minTransaction['dr_account'] == $account['id']){
@@ -85,7 +115,13 @@
                             <div class=" card-body" >
                                 <ul type='1'>
                                     <?php
-                                        $grantors = selectLoanGrantorByLoanId($conn, (int) $_GET['loan_id']);
+                                        $grantors = [];
+                                        try {
+                                            $grantors = selectLoanGrantorByLoanId($conn, (int) $_GET['loan_id']);
+                                        } catch (\Throwable $e) {
+                                            error_log('selectLoanGrantorByLoanId failed for loan_id=' . ((int) $_GET['loan_id']) . ': ' . $e->getMessage());
+                                            $grantors = [];
+                                        }
                                         if($grantors && is_array($grantors)){
                                             foreach($grantors as $grantor){
                                                 echo "<li>$grantor[name]</li>";
@@ -93,7 +129,12 @@
                                                 echo "<table class=' table table-sm table-bordered'>";
                                                     echo "<tr> <td>#</td> <td>Account</td> <td>Amount</td> </tr>";
 
-                                                    $accounts1 = selectMinSubsByUserId($conn, (int) $grantor['grantor_id']);
+                                                    try {
+                                                        $accounts1 = selectMinSubsByUserId($conn, (int) $grantor['grantor_id']);
+                                                    } catch (\Throwable $e) {
+                                                        error_log('selectMinSubsByUserId (grantor) failed for grantor_id=' . $grantor['grantor_id'] . ': ' . $e->getMessage());
+                                                        $accounts1 = [];
+                                                    }
                                                     if($accounts1 && is_array($accounts1)){
                                                         $counter =1;
                                                         foreach($accounts1 as $account1){
@@ -101,7 +142,12 @@
                                                             echo "<tr>";
                                                                 echo "<td>$counter</td>";
                                                                 echo "<td>$account1[name]</td>";
-                                                            $minTransactions = getMinTransactionByMinSubId($conn, $account1['id']);
+                                                            try {
+                                                                $minTransactions = getMinTransactionByMinSubId($conn, $account1['id']);
+                                                            } catch (\Throwable $e) {
+                                                                error_log('getMinTransactionByMinSubId (grantor) failed for min_sub_id=' . $account1['id'] . ': ' . $e->getMessage());
+                                                                $minTransactions = [];
+                                                            }
                                                             if($minTransactions && is_array($minTransactions)){
                                                                 foreach($minTransactions as $minTransaction){
                                                                     if($minTransaction['dr_account'] == $account1['id']){

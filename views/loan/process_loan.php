@@ -5,13 +5,25 @@
     <div class=" card-body">
         <div class=" card-body">
             <?php
-                $userDetails = selectUserById($conn, (int) $_GET['user_id']);
+                $userDetails = null;
+                try {
+                    $userDetails = selectUserById($conn, (int) $_GET['user_id']);
+                } catch (\Throwable $e) {
+                    error_log('selectUserById failed for user_id=' . ((int) $_GET['user_id']) . ': ' . $e->getMessage());
+                }
                 if($userDetails && is_array($userDetails)){
                     echo "<h4>Name: {$userDetails['name']}</h4>";
                     echo "<h4>Branch: $userDetails[branch_name] </h4>";
+                } else {
+                    echo '<div class="alert alert-light border mb-2"><small class="text-muted">Member name/branch unavailable.</small></div>';
                 }
-                
-                $loanDetails = selectLoanById($conn, (int) $_GET['loan_id']);
+
+                $loanDetails = null;
+                try {
+                    $loanDetails = selectLoanById($conn, (int) $_GET['loan_id']);
+                } catch (\Throwable $e) {
+                    error_log('selectLoanById failed for loan_id=' . ((int) $_GET['loan_id']) . ': ' . $e->getMessage());
+                }
                 if($loanDetails && is_array($loanDetails)){
                     echo "<h4> Loan Principle Requested: ". number_format( $loanDetails['principle'],2) ." </h4>";
                     echo "<h4> Period: $loanDetails[period] (months) </h4>";
@@ -21,7 +33,12 @@
                     
                     // Display details based on repayment mode
                     if($loanDetails['repayment_mode'] == 'salary'){
-                        $salaryDetails = selectLoanSalaryDetails($conn, $loanId);
+                        $salaryDetails = null;
+                        try {
+                            $salaryDetails = selectLoanSalaryDetails($conn, $loanId);
+                        } catch (\Throwable $e) {
+                            error_log('selectLoanSalaryDetails failed for loan_id=' . $loanId . ': ' . $e->getMessage());
+                        }
                         if($salaryDetails && is_array($salaryDetails)){
                             echo "<h4> Basic Salary: ". number_format($salaryDetails['basic_salary'], 2) ." </h4>";
                             echo "<h4> Take Home: ". number_format($salaryDetails['take_home'], 2) ." </h4>";
@@ -37,7 +54,12 @@
                     }
                     
                     if($loanDetails['repayment_mode'] == 'standing_order'){
-                        $standingOrderDetails = selectLoanStandingOrderDetails($conn, $loanId);
+                        $standingOrderDetails = null;
+                        try {
+                            $standingOrderDetails = selectLoanStandingOrderDetails($conn, $loanId);
+                        } catch (\Throwable $e) {
+                            error_log('selectLoanStandingOrderDetails failed for loan_id=' . $loanId . ': ' . $e->getMessage());
+                        }
                         if($standingOrderDetails && is_array($standingOrderDetails)){
                             
                             // Display standing order attachment link
@@ -49,6 +71,9 @@
                             }
                         }
                     }
+                } else {
+                    $loanId = (int) $_GET['loan_id'];
+                    echo '<div class="alert alert-danger mb-0"><i class="fas fa-exclamation-circle mr-1"></i> This loan application (#' . $loanId . ') could not be loaded. It may have been deleted, or its ID/links are incorrect.</div>';
                 }
             ?>
         </div>
@@ -59,9 +84,33 @@
             //  Pulls the member's savings, outstanding balances, overdue
             //  installments, guarantor acceptance and product rules into
             //  one verdict so the reviewer doesn't have to dig manually.
+            //
+            //  Defensive: this block touches several tables/columns that
+            //  may not perfectly match on every environment. If anything
+            //  inside throws (this DB layer runs in mysqli exception mode),
+            //  we catch it here and show a small notice instead of letting
+            //  it take down the entire approve/reject screen below.
             // ============================================================
-            $eligibility = evaluateLoanEligibility($conn, (int) $_GET['loan_id']);
-            if($eligibility && empty($eligibility['error'])){
+            $eligibility = null;
+            $eligibilityError = null;
+            try {
+                $eligibility = evaluateLoanEligibility($conn, (int) $_GET['loan_id']);
+            } catch (\Throwable $e) {
+                $eligibilityError = $e->getMessage();
+                error_log('Eligibility engine failed for loan_id=' . ((int) $_GET['loan_id']) . ': ' . $eligibilityError);
+            }
+
+            if($eligibilityError !== null){
+        ?>
+        <div class="card-body">
+            <div class="alert alert-warning mb-0">
+                <i class="fas fa-exclamation-triangle mr-1"></i>
+                Eligibility check could not be generated for this application, but you can still review the
+                details below and approve or reject as normal.
+            </div>
+        </div>
+        <?php
+            } elseif($eligibility && empty($eligibility['error'])){
                 $recoBadge = [
                     'recommended'       => ['label' => 'Recommended',        'class' => 'badge-success'],
                     'review_carefully'  => ['label' => 'Review Carefully',   'class' => 'badge-warning'],
@@ -95,7 +144,13 @@
                         <table class="table table-sm table-bordered mb-0">
                             <tr class="table-secondary"><th>#</th><th>Product</th><th>Amount</th><th>Period</th><th>Status</th></tr>
                             <?php
-                                $history = getMemberLoanHistory($conn, (int) $_GET['user_id'], (int) $_GET['loan_id']);
+                                $history = [];
+                                try {
+                                    $history = getMemberLoanHistory($conn, (int) $_GET['user_id'], (int) $_GET['loan_id']);
+                                } catch (\Throwable $e) {
+                                    error_log('getMemberLoanHistory failed for loan_id=' . ((int) $_GET['loan_id']) . ': ' . $e->getMessage());
+                                    $history = [];
+                                }
                                 if($history && is_array($history) && count($history) > 0){
                                     $hi = 1;
                                     foreach($history as $h){
@@ -127,19 +182,26 @@
 
                     <h5>Member`s Details</h5>
                     <?php
-                            $memberDetails = selectMemberByUserId($conn, (int) $_GET['user_id']);
+                            $memberDetails = null;
+                            try {
+                                $memberDetails = selectMemberByUserId($conn, (int) $_GET['user_id']);
+                            } catch (\Throwable $e) {
+                                error_log('selectMemberByUserId failed for user_id=' . ((int) $_GET['user_id']) . ': ' . $e->getMessage());
+                            }
                             if($memberDetails && is_array($memberDetails)){
                                 // print_r($memberDetails);
                                 ?>
-                                    <h4>Names:<?= $userDetails['name'] ?></h4>
-                                    <h4> Branch: <?= $memberDetails['branch'] ?></h4>
-                                    <h4>Gender: <?= $memberDetails['gender'] ?> </h4>
-                                    <h4>Phone: <?= $memberDetails['phone'] ?> </h4>
-                                    <h4> Email: <?= $memberDetails['email'] ?> </h4>
-                                    <h4> Nida: <?= $memberDetails['nida'] ?> </h4>
-                                    <h4> check No: <?= $memberDetails['check_no'] ?> </h4>
-                                    <h4> reg No: <?= $memberDetails['reg_no'] ?> </h4>
+                                    <h4>Names: <?= htmlspecialchars($userDetails['name'] ?? ($memberDetails['name'] ?? '—')) ?></h4>
+                                    <h4> Branch: <?= htmlspecialchars($memberDetails['branch'] ?? '—') ?></h4>
+                                    <h4>Gender: <?= htmlspecialchars($memberDetails['gender'] ?? '—') ?> </h4>
+                                    <h4>Phone: <?= htmlspecialchars($memberDetails['phone'] ?? '—') ?> </h4>
+                                    <h4> Email: <?= htmlspecialchars($memberDetails['email'] ?? '—') ?> </h4>
+                                    <h4> Nida: <?= htmlspecialchars($memberDetails['nida'] ?? '—') ?> </h4>
+                                    <h4> check No: <?= htmlspecialchars($memberDetails['check_no'] ?? '—') ?> </h4>
+                                    <h4> reg No: <?= htmlspecialchars($memberDetails['reg_no'] ?? '—') ?> </h4>
                                 <?php
+                            } else {
+                                echo '<div class="alert alert-light border mb-2"><small class="text-muted">Member profile details unavailable.</small></div>';
                             }
                     ?>
                     <div class=" card-footer"> <h5>Contributions</h5> </div>
@@ -152,7 +214,13 @@
                                         <td>Balance</td>
                                     </tr>
                                     <?php
-                                        $accounts = selectMinSubsByUserId($conn, (int) $_GET['user_id']);
+                                        $accounts = [];
+                                        try {
+                                            $accounts = selectMinSubsByUserId($conn, (int) $_GET['user_id']);
+                                        } catch (\Throwable $e) {
+                                            error_log('selectMinSubsByUserId failed for user_id=' . ((int) $_GET['user_id']) . ': ' . $e->getMessage());
+                                            $accounts = [];
+                                        }
                                         if($accounts && is_array($accounts)){
                                             $counter =1;
                                             foreach($accounts as $account){
@@ -160,7 +228,12 @@
                                                 echo "<tr>";
                                                     echo "<td>$counter</td>";
                                                     echo "<td>$account[name]</td>";
-                                                   $minTransactions = getMinTransactionByMinSubId($conn, $account['id']);
+                                                   try {
+                                                       $minTransactions = getMinTransactionByMinSubId($conn, $account['id']);
+                                                   } catch (\Throwable $e) {
+                                                       error_log('getMinTransactionByMinSubId failed for min_sub_id=' . $account['id'] . ': ' . $e->getMessage());
+                                                       $minTransactions = [];
+                                                   }
                                                    if($minTransactions && is_array($minTransactions)){
                                                        foreach($minTransactions as $minTransaction){
                                                            if($minTransaction['dr_account'] == $account['id']){
@@ -186,7 +259,13 @@
                             <div class=" card-body" >
                                 <ul type='1'>
                                     <?php
-                                        $grantors = selectLoanGrantorByLoanId($conn, (int) $_GET['loan_id']);
+                                        $grantors = [];
+                                        try {
+                                            $grantors = selectLoanGrantorByLoanId($conn, (int) $_GET['loan_id']);
+                                        } catch (\Throwable $e) {
+                                            error_log('selectLoanGrantorByLoanId failed for loan_id=' . ((int) $_GET['loan_id']) . ': ' . $e->getMessage());
+                                            $grantors = [];
+                                        }
                                         if($grantors && is_array($grantors)){
                                             foreach($grantors as $grantor){
                                                 echo "<li>$grantor[name]</li>";
@@ -194,7 +273,12 @@
                                                 echo "<table class=' table table-sm table-bordered'>";
                                                     echo "<tr> <td>#</td> <td>Account</td> <td>Amount</td> </tr>";
 
-                                                    $accounts1 = selectMinSubsByUserId($conn, (int) $grantor['grantor_id']);
+                                                    try {
+                                                        $accounts1 = selectMinSubsByUserId($conn, (int) $grantor['grantor_id']);
+                                                    } catch (\Throwable $e) {
+                                                        error_log('selectMinSubsByUserId (grantor) failed for grantor_id=' . $grantor['grantor_id'] . ': ' . $e->getMessage());
+                                                        $accounts1 = [];
+                                                    }
                                                     if($accounts1 && is_array($accounts1)){
                                                         $counter =1;
                                                         foreach($accounts1 as $account1){
@@ -202,7 +286,12 @@
                                                             echo "<tr>";
                                                                 echo "<td>$counter</td>";
                                                                 echo "<td>$account1[name]</td>";
-                                                            $minTransactions = getMinTransactionByMinSubId($conn, $account1['id']);
+                                                            try {
+                                                                $minTransactions = getMinTransactionByMinSubId($conn, $account1['id']);
+                                                            } catch (\Throwable $e) {
+                                                                error_log('getMinTransactionByMinSubId (grantor) failed for min_sub_id=' . $account1['id'] . ': ' . $e->getMessage());
+                                                                $minTransactions = [];
+                                                            }
                                                             if($minTransactions && is_array($minTransactions)){
                                                                 foreach($minTransactions as $minTransaction){
                                                                     if($minTransaction['dr_account'] == $account1['id']){
@@ -230,6 +319,7 @@
                 </div>
             </div>
             <div class=" col-md-5 col-sm-10">
+                <?php if($loanDetails && is_array($loanDetails)): ?>
                 <div class=" card card-primary card-outline">
                     <div class=" card-header"> <h5>Processing form</h5> </div>
                
@@ -294,6 +384,15 @@
                         </div>
                     </form>
                 </div>
+                <?php else: ?>
+                <div class=" card card-outline card-danger">
+                    <div class=" card-body">
+                        <i class="fas fa-exclamation-circle mr-1"></i>
+                        The loan record itself could not be loaded, so it can't be approved or rejected from here.
+                        Please verify the loan ID in the link, or check with an administrator.
+                    </div>
+                </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>

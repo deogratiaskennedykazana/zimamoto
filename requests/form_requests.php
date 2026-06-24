@@ -3,9 +3,10 @@
     require_once "../functions/subsidiary_functions.php";
     require_once "../functions/utilities_functions.php";
     require_once "../functions/min_sub_functions.php";
-      require_once "../functions/user_function.php";
-      require_once "../functions/min_transaction_functions.php";
-      require_once "../functions/role_functions.php";
+    require_once "../functions/user_function.php";
+    require_once "../functions/min_transaction_functions.php";
+    require_once "../functions/role_functions.php";
+    require_once "../functions/loan_functions.php";
     require_once "../configs.php";
     $conn = openConn();
 
@@ -198,23 +199,28 @@ if(isset($_GET['get_min_sub_by_branch_id'])){
             echo json_encode($data);
           }
            if(isset($_GET['get_loan_capacity_by_user_id'])){
-            $userId = (int) $_GET['userId'];
-            $subId = selectMinSubByUserIDAndCategory($conn, $userId,'saving');
-            $amanaTransaction  = [];
-            $balance = 0;
-            if($subId && is_array($subId)){
-                $amanaTransaction = getMinTransactionByMinSubId($conn, $subId['id']);
-                  if($amanaTransaction && is_array($amanaTransaction)){
-                foreach($amanaTransaction as $transaction){
-                        if($transaction['dr_account'] == $subId['id']){
-                            $balance += $transaction['amount'];
-                        } elseif($transaction['cr_account'] == $subId['id']){
-                            $balance -= $transaction['amount'];
-                        }
+            $userId     = (int) $_GET['userId'];
+            $loanTypeId = isset($_GET['loanTypeId']) ? (int) $_GET['loanTypeId'] : 0;
+
+            // Determine the savings multiplier from the selected loan product.
+            // Fall back to 3x if no product is selected or found.
+            $multiplier = 3.0;
+            if($loanTypeId > 0){
+                $loanType = selectLoanTypeById($conn, $loanTypeId);
+                if($loanType && is_array($loanType) && isset($loanType['savings_multiplier'])){
+                    $multiplier = (float) $loanType['savings_multiplier'];
                 }
             }
-            }
-           echo $balance*-3;
+
+            // Sum all savings categories (saving + amana + share)
+            $savings = getMemberTotalSavings($conn, $userId);
+            $total   = abs($savings['total']);
+
+            echo json_encode([
+                'capacity'    => round($total * $multiplier, 2),
+                'savings'     => round($total, 2),
+                'multiplier'  => $multiplier,
+            ]);
            }
 
         if(isset($_GET['get_role_permissions'])){

@@ -360,19 +360,27 @@ function fetchMinSubByBranch(){
 
 function setLoanCapacity(){
   var userId = $('select[name="user_id"]').length ? $('select[name="user_id"]').val() : $('input[name="user_id"]').val();
+  var loanTypeId = $('#loan_type_select').val() || 0;
+  if(!userId) return;
 
   $.ajax({
-    type:"GET",
-    url:"./requests/form_requests.php",
-    data:{"get_loan_capacity_by_user_id":"","userId":userId},
+    type: 'GET',
+    url: './requests/form_requests.php',
+    data: { get_loan_capacity_by_user_id: '', userId: userId, loanTypeId: loanTypeId },
     success: function(data){
-      console.log(data);
-      var datanumber = parseFloat(data);
-      let formatted = datanumber.toLocaleString();
-     $('input[name="amount"]').attr('max', data);
-     $('input[name="amount"]').attr('placeholder', 'Amount should be less than ' + formatted + " TZS");
+      var obj = typeof data === 'string' ? JSON.parse(data) : data;
+      var capacity   = parseFloat(obj.capacity   || 0);
+      var savings    = parseFloat(obj.savings    || 0);
+      var multiplier = parseFloat(obj.multiplier || 3);
+      var formatted  = capacity.toLocaleString();
+      $('input[name="amount"]').attr('max', capacity);
+      $('input[name="amount"]').attr(
+        'placeholder',
+        'Max: TZS ' + formatted +
+        ' (TZS ' + savings.toLocaleString() + ' savings \u00d7 ' + multiplier + 'x)'
+      );
     }
-  })
+  });
 }
  
  
