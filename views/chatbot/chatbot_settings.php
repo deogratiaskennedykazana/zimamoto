@@ -24,11 +24,16 @@ $systemRoles = [
 
 // ── Handle save ───────────────────────────────────────────────
 if (isset($_POST['save_chatbot_settings'])) {
-    $enabled = isset($_POST['chatbot_enabled']) ? 1 : 0;
-    $apiKey  = trim($_POST['gemini_api_key'] ?? '');
-    $model   = in_array($_POST['model'] ?? '', ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash-exp'])
-               ? $_POST['model'] : 'gemini-1.5-flash';
-    $updBy   = (int)$_SESSION['userid'];
+    $enabled     = isset($_POST['chatbot_enabled']) ? 1 : 0;
+    $provider    = in_array($_POST['provider'] ?? '', ['gemini', 'grok'], true)
+                   ? $_POST['provider'] : 'gemini';
+    $geminiApiKey = trim($_POST['gemini_api_key'] ?? '');
+    $grokApiKey   = trim($_POST['grok_api_key'] ?? '');
+    $geminiModel  = in_array($_POST['gemini_model'] ?? '', ['gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-3.1-pro-preview'], true)
+                   ? $_POST['gemini_model'] : 'gemini-3.5-flash';
+    $grokModel    = in_array($_POST['grok_model'] ?? '', ['grok-4.3'], true)
+                   ? $_POST['grok_model'] : 'grok-4.3';
+    $updBy       = (int)$_SESSION['userid'];
 
     // Collect allowed roles — admin/superadmin always included
     $chosenRoles = (array)($_POST['allowed_roles'] ?? []);
@@ -40,19 +45,19 @@ if (isset($_POST['save_chatbot_settings'])) {
 
     $existing = $conn->query("SELECT id FROM chatbot_settings LIMIT 1")->fetch_assoc();
     if ($existing) {
-        $stmt = $conn->prepare("UPDATE chatbot_settings SET enabled=?, api_key=?, model=?, allowed_roles=?, updated_by=?, updated_at=NOW() WHERE id=?");
-        $stmt->bind_param("isssii", $enabled, $apiKey, $model, $allowedRolesStr, $updBy, $existing['id']);
+        $stmt = $conn->prepare("UPDATE chatbot_settings SET enabled=?, provider=?, api_key=?, model=?, grok_api_key=?, grok_model=?, allowed_roles=?, updated_by=?, updated_at=NOW() WHERE id=?");
+        $stmt->bind_param("issssssii", $enabled, $provider, $geminiApiKey, $geminiModel, $grokApiKey, $grokModel, $allowedRolesStr, $updBy, $existing['id']);
         $stmt->execute();
     } else {
-        $stmt = $conn->prepare("INSERT INTO chatbot_settings (enabled, api_key, model, allowed_roles, updated_by) VALUES (?,?,?,?,?)");
-        $stmt->bind_param("isssi", $enabled, $apiKey, $model, $allowedRolesStr, $updBy);
+        $stmt = $conn->prepare("INSERT INTO chatbot_settings (enabled, provider, api_key, model, grok_api_key, grok_model, allowed_roles, updated_by) VALUES (?,?,?,?,?,?,?,?)");
+        $stmt->bind_param("issssssi", $enabled, $provider, $geminiApiKey, $geminiModel, $grokApiKey, $grokModel, $allowedRolesStr, $updBy);
         $stmt->execute();
     }
     echo '<script>alert("Chatbot settings saved successfully."); window.location.href="./?page=chatbot_settings";</script>';
     return;
 }
 
-$settings  = $conn->query("SELECT * FROM chatbot_settings LIMIT 1")->fetch_assoc();
+$settings  = $conn->query("SELECT enabled, provider, api_key, model, grok_api_key, grok_model, allowed_roles FROM chatbot_settings LIMIT 1")->fetch_assoc();
 $savedRoles = array_map('trim', explode(',', $settings['allowed_roles'] ?? 'admin,superadmin,super admin'));
 
 $auditRows = $conn->query("
@@ -71,10 +76,8 @@ $auditRows = $conn->query("
     <div class="card-body">
         <div class="alert alert-info mb-3">
             <i class="fas fa-info-circle mr-1"></i>
-            This chatbot uses <strong>Google Gemini API (free tier)</strong> —
-            <strong>1,500 requests/day free, no credit card needed.</strong><br>
-            Get your free API key at:
-            <a href="https://aistudio.google.com/app/apikey" target="_blank">aistudio.google.com/app/apikey</a>
+            This chatbot supports both <strong>Google Gemini</strong> and <strong>xAI Grok</strong>.
+            For Gemini, use an API key from Google AI Studio. For Grok, use your xAI bearer key.
         </div>
 
         <form method="post">
@@ -94,16 +97,33 @@ $auditRows = $conn->query("
                 </div>
                 <div class="col-md-4">
                     <div class="form-group">
+                        <label class="font-weight-bold">AI Provider</label>
+                        <select name="provider" class="form-control">
+                            <?php
+                            $providers = [
+                                'gemini' => 'Google Gemini',
+                                'grok'   => 'xAI Grok',
+                            ];
+                            foreach ($providers as $val => $label) {
+                                $sel = ($settings['provider'] ?? 'gemini') === $val ? 'selected' : '';
+                                echo "<option value='{$val}' {$sel}>{$label}</option>";
+                            }
+                            ?>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
                         <label class="font-weight-bold">Gemini Model</label>
-                        <select name="model" class="form-control">
+                        <select name="gemini_model" class="form-control">
                             <?php
                             $models = [
-                                'gemini-1.5-flash'     => 'Gemini 1.5 Flash (Recommended — fastest, free)',
-                                'gemini-2.0-flash-exp' => 'Gemini 2.0 Flash Experimental (free)',
-                                'gemini-1.5-pro'       => 'Gemini 1.5 Pro (slower, free tier limited)',
+                                'gemini-3.5-flash'      => 'Gemini 3.5 Flash (current stable)',
+                                'gemini-3.1-flash-lite' => 'Gemini 3.1 Flash Lite',
+                                'gemini-3.1-pro-preview'=> 'Gemini 3.1 Pro Preview',
                             ];
                             foreach ($models as $val => $label) {
-                                $sel = ($settings['model'] ?? 'gemini-1.5-flash') === $val ? 'selected' : '';
+                                $sel = ($settings['model'] ?? 'gemini-3.5-flash') === $val ? 'selected' : '';
                                 echo "<option value='{$val}' {$sel}>{$label}</option>";
                             }
                             ?>
@@ -117,6 +137,39 @@ $auditRows = $conn->query("
                                value="<?= htmlspecialchars($settings['api_key'] ?? '') ?>"
                                placeholder="AIza...">
                         <small class="text-muted">Stored server-side only — never sent to the browser.</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="font-weight-bold">Grok Model</label>
+                        <select name="grok_model" class="form-control">
+                            <?php
+                            $grokModels = [
+                                'grok-4.3' => 'Grok 4.3 (xAI flagship)',
+                            ];
+                            foreach ($grokModels as $val => $label) {
+                                $sel = ($settings['grok_model'] ?? 'grok-4.3') === $val ? 'selected' : '';
+                                echo "<option value='{$val}' {$sel}>{$label}</option>";
+                            }
+                            ?>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="font-weight-bold">Grok API Key</label>
+                        <input type="text" name="grok_api_key" class="form-control"
+                               value="<?= htmlspecialchars($settings['grok_api_key'] ?? '') ?>"
+                               placeholder="sk-...">
+                        <small class="text-muted">Stored server-side only — never sent to the browser.</small>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="alert alert-info mt-4">
+                        <strong>Note:</strong> When using Grok, the Grok API key is required. Gemini settings remain available for fallback.
                     </div>
                 </div>
             </div>
