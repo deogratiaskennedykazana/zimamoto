@@ -7,7 +7,6 @@
             $stmt = $conn->prepare($sql);
             $stmt->bind_param("i", $loanId);
             $stmt->execute();
-    $stmt->store_result();
     return stmt_fetch_assoc($stmt);
         }
         
@@ -20,7 +19,6 @@
             $stmt = $conn->prepare($sql);
             $stmt->bind_param("i", $loanId);
             $stmt->execute();
-    $stmt->store_result();
     return stmt_fetch_assoc($stmt);
         }
         
