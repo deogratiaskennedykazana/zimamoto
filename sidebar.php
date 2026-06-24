@@ -257,6 +257,16 @@ $_canMeetings   = !$_isMember     || userHasPermission($conn, $_sUid, 'Meetings'
             </ul>
           </li>
 
+           <!-- CHATBOT SETTINGS (admin only) -->
+           <?php if (in_array($_sRole, ['admin', 'superadmin', 'super admin'])): ?>
+           <li class="nav-item">
+             <a href="./?page=chatbot_settings" class="nav-link">
+               <i class="nav-icon fas fa-robot"></i>
+               <p>Chatbot Settings <span class="badge badge-info badge-sm ml-1">AI</span></p>
+             </a>
+           </li>
+           <?php endif; ?>
+
         </ul>
       </nav>
       <!-- /.sidebar-menu -->

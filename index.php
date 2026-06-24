@@ -1599,6 +1599,12 @@ case"process_general_loan_repayment_upload":
             case"mfa_setup":
                 include("./views/roles/mfa_setup.php");
                 break;
+
+            // ── CHATBOT SETTINGS (admin only) ──────────────────────────
+            case"chatbot_settings":
+                include("./views/chatbot/chatbot_settings.php");
+                break;
+
             // ===== END NEW FEATURE ROUTES =====
 
         }
@@ -1669,6 +1675,16 @@ case"process_general_loan_repayment_upload":
 
 
 
+
+<?php
+// ── CHATBOT WIDGET ────────────────────────────────────────────
+// Injected only when admin has enabled it in chatbot_settings.
+// Zero impact on system logic when disabled.
+$_chatbotRow = $conn->query("SELECT enabled FROM chatbot_settings LIMIT 1")->fetch_assoc();
+if (!empty($_chatbotRow['enabled'])) {
+    include('./views/chatbot/chatbot_widget.php');
+}
+?>
 
 </body>
 </html>
