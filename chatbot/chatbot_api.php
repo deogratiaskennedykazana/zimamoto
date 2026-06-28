@@ -289,7 +289,7 @@ if ($toolCall !== null) {
 
             // Ask user to confirm
             $confirmMsg = ($replyText ? $replyText."\n\n" : '')
-                . "⚠️ This action will: **{$registry[$toolName]['description'][:80]}**\n"
+                . "⚠️ This action will: **".mb_substr($registry[$toolName]['description'],0,80)."**\n"
                 . "Parameters: {$paramDesc}\n\n"
                 . "Type **yes** to confirm or **no** to cancel.";
             $replyText = $confirmMsg;
