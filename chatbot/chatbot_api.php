@@ -71,11 +71,12 @@ $userRole  =strtolower(trim((string)($_SESSION['role']      ??'member')));
 $userLevel =strtolower(trim((string)($_SESSION['userlevel'] ??'branch')));
 $userName  =trim((string)($_SESSION['username']??'User'));
 $branchId  =(int)($_SESSION['branchid']  ??0);
+$isAdmin   =in_array($userRole,['admin','superadmin','super admin'],true);
 
 // ── Rate limiting (20 msgs/min) ────────────────────────────
 $now=time();
 if(!isset($_SESSION['chatbot_rate'])||!is_array($_SESSION['chatbot_rate'])) $_SESSION['chatbot_rate']=[];
-$_SESSION['chatbot_rate']=array_filter($_SESSION['chatbot_rate'], function($ts){ return $ts>$now-60; });
+$_SESSION['chatbot_rate']=array_filter($_SESSION['chatbot_rate'], function($ts) use ($now){ return $ts>$now-60; });
 if(count($_SESSION['chatbot_rate'])>=20){
     ob_end_clean();http_response_code(429);
     echo json_encode(['error'=>'Too many messages. Please slow down.']);exit;
