@@ -75,7 +75,7 @@ $branchId  =(int)($_SESSION['branchid']  ??0);
 // ── Rate limiting (20 msgs/min) ────────────────────────────
 $now=time();
 if(!isset($_SESSION['chatbot_rate'])||!is_array($_SESSION['chatbot_rate'])) $_SESSION['chatbot_rate']=[];
-$_SESSION['chatbot_rate']=array_filter($_SESSION['chatbot_rate'],fn($ts)=>$ts>$now-60);
+$_SESSION['chatbot_rate']=array_filter($_SESSION['chatbot_rate'], function($ts){ return $ts>$now-60; });
 if(count($_SESSION['chatbot_rate'])>=20){
     ob_end_clean();http_response_code(429);
     echo json_encode(['error'=>'Too many messages. Please slow down.']);exit;
@@ -255,7 +255,7 @@ if($toolCall!==null){
     if(isset($registry[$toolName])){
         $isWrite=$registry[$toolName]['is_write'];
         if($isWrite){
-            $paramDesc=implode(', ',array_map(fn($k,$v)=>"{$k}={$v}",array_keys($toolParams),array_values($toolParams)));
+            $paramDesc=implode(', ',array_map(function($k,$v){ return "{$k}={$v}"; },array_keys($toolParams),array_values($toolParams)));
             $summary="**{$toolName}** with: {$paramDesc}";
             storePendingToolCall($toolName,$toolParams,$summary);
             $toolDesc=mb_substr($registry[$toolName]['description'],0,100);
@@ -331,8 +331,8 @@ function httpPostJson(string $url, array $headers, string $body): array
 
 function callGeminiApi(string $apiKey, string $model, string $systemPrompt, array $history): array
 {
-    $fail=fn(string $safe,?string $log=null)=>['ok'=>false,'reply'=>null,'safe_error'=>$safe,'log_error'=>$log];
-    $contents=array_map(fn($h)=>['role'=>$h['role'],'parts'=>[['text'=>$h['text']]]],$history);
+    $fail=function(string $safe,?string $log=null){ return ['ok'=>false,'reply'=>null,'safe_error'=>$safe,'log_error'=>$log]; };
+    $contents=array_map(function($h){ return ['role'=>$h['role'],'parts'=>[['text'=>$h['text']]]]; },$history);
     $url="https://generativelanguage.googleapis.com/v1beta/models/".urlencode($model).":generateContent?key=".urlencode($apiKey);
     $payload=['system_instruction'=>['parts'=>[['text'=>$systemPrompt]]],'contents'=>$contents,
               'generationConfig'=>['maxOutputTokens'=>1200,'temperature'=>0.3],
@@ -364,7 +364,7 @@ function callGeminiApi(string $apiKey, string $model, string $systemPrompt, arra
 
 function callGrokApi(string $apiKey, string $model, string $systemPrompt, array $history): array
 {
-    $fail=fn(string $safe,?string $log=null)=>['ok'=>false,'reply'=>null,'safe_error'=>$safe,'log_error'=>$log];
+    $fail=function(string $safe,?string $log=null){ return ['ok'=>false,'reply'=>null,'safe_error'=>$safe,'log_error'=>$log]; };
     $messages=[['role'=>'system','content'=>$systemPrompt]];
     foreach($history as $h) $messages[]=['role'=>$h['role']==='model'?'assistant':'user','content'=>$h['text']];
     $body=json_encode(['model'=>$model,'messages'=>$messages,'max_tokens'=>1200,'temperature'=>0.3]);
@@ -392,7 +392,11 @@ function buildRoleContext(mysqli $conn, int $userId, string $role, string $level
     $lines=[];
     $adminRoles=['admin','superadmin','super admin'];
     $isAdmin=in_array($role,$adminRoles,true);
-    $bWhere=$(!$isAdmin&&$branchId>0)?"AND branch_id={$branchId}":'';
+    if(!$isAdmin&&$branchId>0){
+        $bWhere="AND branch_id={$branchId}";
+    } else {
+        $bWhere='';
+    }
 
     if($isAdmin||$role==='accountant'||$role==='manager'||$role==='chairman'){
         $r=$conn->query("SELECT COUNT(*) AS c FROM members WHERE deleted_at IS NULL {$bWhere}");
