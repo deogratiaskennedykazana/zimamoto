@@ -341,12 +341,14 @@ function callGeminiApi(string $apiKey, string $model, string $systemPrompt, arra
     $url="https://generativelanguage.googleapis.com/v1beta/models/".urlencode($model).":generateContent?key=".urlencode($apiKey);
     $payload=['system_instruction'=>['parts'=>[['text'=>$systemPrompt]]],'contents'=>$contents,
               'generationConfig'=>['maxOutputTokens'=>1200,'temperature'=>0.3]];
-    $payload['safetySettings']=[
-        ['category'=>'HARM_CATEGORY_HARASSMENT','threshold'=>($relaxSafety?'BLOCK_HIGH_AND_ABOVE':'BLOCK_MEDIUM_AND_ABOVE')],
-        ['category'=>'HARM_CATEGORY_HATE_SPEECH','threshold'=>($relaxSafety?'BLOCK_HIGH_AND_ABOVE':'BLOCK_MEDIUM_AND_ABOVE')],
-        ['category'=>'HARM_CATEGORY_SEXUALLY_EXPLICIT','threshold'=>($relaxSafety?'BLOCK_HIGH_AND_ABOVE':'BLOCK_MEDIUM_AND_ABOVE')],
-        ['category'=>'HARM_CATEGORY_DANGEROUS_CONTENT','threshold'=>($relaxSafety?'BLOCK_HIGH_AND_ABOVE':'BLOCK_MEDIUM_AND_ABOVE')],
-    ];
+    if(!$relaxSafety){
+        $payload['safetySettings']=[
+            ['category'=>'HARM_CATEGORY_HARASSMENT','threshold'=>'BLOCK_MEDIUM_AND_ABOVE'],
+            ['category'=>'HARM_CATEGORY_HATE_SPEECH','threshold'=>'BLOCK_MEDIUM_AND_ABOVE'],
+            ['category'=>'HARM_CATEGORY_SEXUALLY_EXPLICIT','threshold'=>'BLOCK_MEDIUM_AND_ABOVE'],
+            ['category'=>'HARM_CATEGORY_DANGEROUS_CONTENT','threshold'=>'BLOCK_MEDIUM_AND_ABOVE'],
+        ];
+    }
     $body=json_encode($payload);
     if($body===false) return $fail('Failed to build request. Please try again.');
     $res=httpPostJson($url,['Content-Type: application/json'],$body);
