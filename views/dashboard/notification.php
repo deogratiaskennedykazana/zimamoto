@@ -5,9 +5,9 @@
  * Lists all in-app notifications with read/unread state, mark-all-read action
  */
 
-$userId        = (int)$_SESSION['userid'];
-$notifications = getUserNotifications($conn, $userId, 50);
-$unreadCount   = countUnreadNotifications($conn, $userId);
+$userId = (int)($_SESSION['userid'] ?? 0);
+$notifications = $userId > 0 ? getUserNotifications($conn, $userId, 50) : [];
+$unreadCount   = $userId > 0 ? countUnreadNotifications($conn, $userId) : 0;
 
 // Icon + colour map per notification type
 $typeConfig = [

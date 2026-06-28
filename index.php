@@ -941,8 +941,9 @@
               <select name="usertype" class="form-control" disabled>
                 <?php
                   $types = ['staff', 'Manager', 'accountant', 'Admin'];
+                  $userType = $user['usertype'] ?? $user['type'] ?? '';
                   foreach ($types as $type) {
-                    $selected = ($user['usertype'] == $type) ? 'selected' : '';
+                    $selected = ($userType == $type) ? 'selected' : '';
                     echo "<option value='$type' $selected>$type</option>";
                   }
                 ?>

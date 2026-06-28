@@ -6,7 +6,7 @@
 require_once __DIR__ . '/../../functions/totp_functions.php';
 require_once __DIR__ . '/../../functions/sms_functions.php';
 
-$userId    = (int)$_SESSION['userid'];
+$userId    = (int)($_SESSION['userid'] ?? 0);
 $isMember  = strtolower($_SESSION['role'] ?? '') === 'member';
 $message   = '';
 $msgType   = 'info';

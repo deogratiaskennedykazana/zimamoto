@@ -5,7 +5,7 @@
  * - Correct column names: min_transactions.date_  |  loans.approve_date  |  transaction_voucher.dr_ammount
  */
 
-$memberId = (int)$_SESSION['userid'];
+$memberId = (int)($_SESSION['userid'] ?? 0);
 
 // ---- Member MFA status ----
 $totpEnabled = false;
