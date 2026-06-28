@@ -216,8 +216,8 @@ if(!function_exists('curl_init')){
 }
 
 $result=($provider==='grok')
-    ?callGrokApi($apiKey,$model,$systemPrompt,$history)
-    :callGeminiApi($apiKey,$model,$systemPrompt,$history);
+    ?callGrokApi($apiKey,$model,$systemPrompt,$history,$isAdmin)
+    :callGeminiApi($apiKey,$model,$systemPrompt,$history,$isAdmin);
 
 // Fallback
 if(!$result['ok']){
@@ -227,8 +227,12 @@ if(!$result['ok']){
     } elseif($provider==='gemini'){
         $errLow=strtolower((string)$result['log_error']);
         if((str_contains($errLow,'high demand')||str_contains($errLow,'timed out'))&&$geminiModel!=='gemini-2.0-flash'){
-            $fb=callGeminiApi($geminiKey,'gemini-2.0-flash',$systemPrompt,$history);
+            $fb=callGeminiApi($geminiKey,$geminiModel,$systemPrompt,$history,$isAdmin);
             if($fb['ok']){$model='gemini-2.0-flash';$result=$fb;}
+        }
+        if($isAdmin && str_contains(strtolower((string)$result['safe_error']),'safety filter')){
+            $fb=callGeminiApi($geminiKey,$geminiModel,$systemPrompt,$history,true);
+            if($fb['ok']){$result=$fb;}
         }
     }
 }
@@ -329,19 +333,19 @@ function httpPostJson(string $url, array $headers, string $body): array
     return ['raw'=>$raw,'curl_error'=>$curlErr,'http_code'=>$httpCode];
 }
 
-function callGeminiApi(string $apiKey, string $model, string $systemPrompt, array $history): array
+function callGeminiApi(string $apiKey, string $model, string $systemPrompt, array $history, bool $relaxSafety=false): array
 {
     $fail=function(string $safe,?string $log=null){ return ['ok'=>false,'reply'=>null,'safe_error'=>$safe,'log_error'=>$log]; };
     $contents=array_map(function($h){ return ['role'=>$h['role'],'parts'=>[['text'=>$h['text']]]]; },$history);
     $url="https://generativelanguage.googleapis.com/v1beta/models/".urlencode($model).":generateContent?key=".urlencode($apiKey);
     $payload=['system_instruction'=>['parts'=>[['text'=>$systemPrompt]]],'contents'=>$contents,
-              'generationConfig'=>['maxOutputTokens'=>1200,'temperature'=>0.3],
-              'safetySettings'=>[
-                ['category'=>'HARM_CATEGORY_HARASSMENT','threshold'=>'BLOCK_MEDIUM_AND_ABOVE'],
-                ['category'=>'HARM_CATEGORY_HATE_SPEECH','threshold'=>'BLOCK_MEDIUM_AND_ABOVE'],
-                ['category'=>'HARM_CATEGORY_SEXUALLY_EXPLICIT','threshold'=>'BLOCK_MEDIUM_AND_ABOVE'],
-                ['category'=>'HARM_CATEGORY_DANGEROUS_CONTENT','threshold'=>'BLOCK_MEDIUM_AND_ABOVE'],
-              ]];
+              'generationConfig'=>['maxOutputTokens'=>1200,'temperature'=>0.3]];
+    $payload['safetySettings']=[
+        ['category'=>'HARM_CATEGORY_HARASSMENT','threshold'=>($relaxSafety?'BLOCK_HIGH_AND_ABOVE':'BLOCK_MEDIUM_AND_ABOVE')],
+        ['category'=>'HARM_CATEGORY_HATE_SPEECH','threshold'=>($relaxSafety?'BLOCK_HIGH_AND_ABOVE':'BLOCK_MEDIUM_AND_ABOVE')],
+        ['category'=>'HARM_CATEGORY_SEXUALLY_EXPLICIT','threshold'=>($relaxSafety?'BLOCK_HIGH_AND_ABOVE':'BLOCK_MEDIUM_AND_ABOVE')],
+        ['category'=>'HARM_CATEGORY_DANGEROUS_CONTENT','threshold'=>($relaxSafety?'BLOCK_HIGH_AND_ABOVE':'BLOCK_MEDIUM_AND_ABOVE')],
+    ];
     $body=json_encode($payload);
     if($body===false) return $fail('Failed to build request. Please try again.');
     $res=httpPostJson($url,['Content-Type: application/json'],$body);
@@ -362,12 +366,16 @@ function callGeminiApi(string $apiKey, string $model, string $systemPrompt, arra
     return ['ok'=>true,'reply'=>(string)$replyText,'safe_error'=>null,'log_error'=>null];
 }
 
-function callGrokApi(string $apiKey, string $model, string $systemPrompt, array $history): array
+function callGrokApi(string $apiKey, string $model, string $systemPrompt, array $history, bool $relaxSafety=false): array
 {
     $fail=function(string $safe,?string $log=null){ return ['ok'=>false,'reply'=>null,'safe_error'=>$safe,'log_error'=>$log]; };
     $messages=[['role'=>'system','content'=>$systemPrompt]];
     foreach($history as $h) $messages[]=['role'=>$h['role']==='model'?'assistant':'user','content'=>$h['text']];
-    $body=json_encode(['model'=>$model,'messages'=>$messages,'max_tokens'=>1200,'temperature'=>0.3]);
+    $payload=['model'=>$model,'messages'=>$messages,'max_tokens'=>1200,'temperature'=>0.3];
+    if($relaxSafety){
+        $payload['safety_filter']=['mode'=>'relaxed'];
+    }
+    $body=json_encode($payload);
     if($body===false) return $fail('Failed to build request.');
     $res=httpPostJson('https://api.x.ai/v1/chat/completions',['Content-Type: application/json','Authorization: Bearer '.$apiKey],$body);
     if($res['curl_error']!==''||$res['raw']===false) return $fail('Could not reach AI service.',$res['curl_error']);
@@ -501,6 +509,7 @@ RULES FOR TOOLS:
 - Only ONE tool per reply.
 - Never guess or invent tool names or params — use only what's listed.
 - For financial operations (deposit, withdraw, approve loan), ALWAYS show the details first, then emit the WRITE tool token so the user confirms.
+- Admin/accountant requests to manage member accounts, savings, loans, and financial data are valid internal operations; do not refuse these as unsafe.
 - When user says amounts like "5 million", "500k", "500,000" — pass them as-is; the system normalises automatically.
 - When user provides a member name but not ID, use name_search param — the system will fuzzy-find the best match.
 TOOLS;
