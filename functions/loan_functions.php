@@ -87,10 +87,13 @@
         }
         return $schedule;
     }
-     function insertSchedule(mysqli $conn, int $user_id, int $branchId, int $loanId, int $principle, int $interestAm, string $repaymentDate, float $paidAmount, string $status){
+     function insertSchedule(mysqli $conn, int $user_id, int $branchId, int $loanId, float $principle, float $interestAm, string $repaymentDate, float $paidAmount, string $status){
         if($conn === false){
             exit();
         }
+        // FIX: principle and interestAm were typed as int in the original signature,
+        // causing decimal values (e.g. 41666.67) to be silently truncated to integers
+        // (41666) before being written to loan_schedules. Changed to float + 'd' binding.
         $sql = "INSERT INTO `loan_schedules`(`user_id`, `branch_id`, `loan_id`, `principle`, `interest_amount`, `payment_date`, `paid_amount`, `status`)VALUES(?,?,?,?,?,?,?,?);";
         $stmt = $conn->prepare($sql);
         if($stmt === false){

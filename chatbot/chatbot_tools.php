@@ -840,7 +840,7 @@ function getToolRegistry(mysqli $conn, int $userId, string $userRole, int $branc
                 $stmt->execute();$rows=stmt_fetch_all($stmt);$stmt->close();
                 if(empty($rows)) return ['ok'=>true,'message'=>'No audit records found.','data'=>[]];
                 $lines=["📋 Audit Trail (".count($rows)."):\n"];
-                foreach($rows as $r) $lines[]="  ".substr($r['created_at'],0,16)." | {$r['actor']} | {$r['module']}.{$r['action']} | {$r['notes']}";
+                foreach($rows as $r) $lines[]="  ".substr($r['created_at'],0,16)." | {$r['actor']} | {$r['module']}.{$r['action']} | ".($r['detail']??$r['notes']??'');
                 return ['ok'=>true,'message'=>implode("\n",$lines),'data'=>$rows];
             },
         ],

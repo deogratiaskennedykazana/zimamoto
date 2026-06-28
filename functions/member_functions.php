@@ -107,12 +107,15 @@
             if($conn === false){
                 exit;
             }
+            // FIX: bind_param order was swapped — $userId and $status were in wrong positions.
+            // SQL: phone, birthdate, nida, gender, status WHERE user_id
+            // Types: s s s s s i  (five strings then one int)
             $sql = "UPDATE members SET phone = ?, birthdate = ?, nida = ?, gender = ?, status=?, updated_at = NOW() WHERE user_id = ?";
             $stmt = $conn->prepare($sql);
             if($stmt === false){
                 exit;
             }
-            $stmt->bind_param("ssssis", $phone, $birthdate, $nida, $gender, $userId, $status);
+            $stmt->bind_param("sssssi", $phone, $birthdate, $nida, $gender, $status, $userId);
             return ($stmt->execute()) ? true : $stmt->errno;
         }
 

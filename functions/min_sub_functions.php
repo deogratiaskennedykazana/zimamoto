@@ -145,8 +145,15 @@
             if($conn === false){
                 exit;
             }
-            $sql = "SELECT * FROM  min_subs WHERE user_id='$userId' AND category='$type' ORDER BY name";
-           return($conn->query($sql)) ? $conn->query($sql)->fetch_assoc() : $conn->error;
+            // FIX 1: was interpolating $userId and $type directly into SQL (injection risk).
+            // FIX 2: was calling $conn->query() twice on the same SQL — the first result
+            //         was discarded and the second fetch_assoc() could return stale/wrong data
+            //         on servers where query() reuses internal result buffers.
+            $sql = "SELECT * FROM min_subs WHERE user_id = ? AND category = ? AND deleted_at IS NULL ORDER BY name LIMIT 1";
+            $stmt = $conn->prepare($sql);
+            if(!$stmt) return false;
+            $stmt->bind_param('is', $userId, $type);
+            return ($stmt->execute()) ? stmt_fetch_assoc($stmt) : false;
         }
          function selectMinSubsBySubsidiaryId(mysqli $conn, int $subsidiaryId){
             if($conn === false){
