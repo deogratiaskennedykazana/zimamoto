@@ -1,14 +1,28 @@
 <?php
 
+// FIX: this used to only render when type === 'success', so every
+// setNotification('error'|'danger'|'warning'|'info', ...) call across the
+// whole app (budget, loans, vouchers, etc.) was silently discarded by
+// getNotification() — the user got bounced back with zero feedback on
+// failures. Now every type renders, each with its own color/icon.
 $notification = getNotification();
-if ($notification && $notification['type'] === 'success'):
+if ($notification):
+    $__type = $notification['type'] ?? 'info';
+    $__themes = [
+        'success' => ['from' => '#10b981', 'to' => '#059669', 'icon' => 'M5 13l4 4L19 7'],
+        'error'   => ['from' => '#ef4444', 'to' => '#dc2626', 'icon' => 'M6 18L18 6M6 6l12 12'],
+        'danger'  => ['from' => '#ef4444', 'to' => '#dc2626', 'icon' => 'M6 18L18 6M6 6l12 12'],
+        'warning' => ['from' => '#f59e0b', 'to' => '#d97706', 'icon' => 'M12 9v3.75m0 3.75h.008M21 12a9 9 0 11-18 0 9 9 0 0118 0z'],
+        'info'    => ['from' => '#3b82f6', 'to' => '#2563eb', 'icon' => 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'],
+    ];
+    $__theme = $__themes[$__type] ?? $__themes['info'];
 ?>
-<div id="toast-notification" style="position: fixed; bottom: 30px; right: 30px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 14px 18px; border-radius: 12px; box-shadow: 0 8px 24px rgba(16, 185, 129, 0.4), 0 2px 8px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 12px; z-index: 9999; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; font-size: 14px; font-weight: 500; max-width: 380px; min-width: 280px; animation: slideInBounce 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55); backdrop-filter: blur(10px);">
+<div id="toast-notification" style="position: fixed; bottom: 30px; right: 30px; background: linear-gradient(135deg, <?php echo $__theme['from']; ?> 0%, <?php echo $__theme['to']; ?> 100%); color: white; padding: 14px 18px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 12px; z-index: 9999; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; font-size: 14px; font-weight: 500; max-width: 380px; min-width: 280px; animation: slideInBounce 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55); backdrop-filter: blur(10px);">
     
-    <!-- Check Icon with Circle Background -->
+    <!-- Icon with Circle Background -->
     <div style="width: 36px; height: 36px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
         <svg style="width: 20px; height: 20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="<?php echo $__theme['icon']; ?>"></path>
         </svg>
     </div>
     

@@ -1,8 +1,19 @@
 <?php
 
+// FIX: errors were being displayed directly on-page even on the live server
+// (any warning/notice would print raw PHP output to real users instead of
+// being silently logged). Detect live vs local the same way openConn()
+// does below, and only show errors locally; on live, just log them.
+$__isLiveEnv = (isset($_SERVER['SERVER_NAME']) && str_contains($_SERVER['SERVER_NAME'], 'tellicerpsys'));
 error_reporting(E_ALL);
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
+if ($__isLiveEnv) {
+    ini_set('display_errors', 0);
+    ini_set('display_startup_errors', 0);
+    ini_set('log_errors', 1);
+} else {
+    ini_set('display_errors', 1);
+    ini_set('display_startup_errors', 1);
+}
 
 // Polyfill for servers without mysqlnd (no get_result())
 function stmt_fetch_assoc($stmt) {

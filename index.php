@@ -1681,7 +1681,14 @@ case"process_general_loan_repayment_upload":
 // Injected only when:
 //   1. Admin has enabled the chatbot in chatbot_settings
 //   2. The current user's role is in the allowed_roles list
-$_chatbotRow = $conn->query("SELECT enabled, allowed_roles FROM chatbot_settings LIMIT 1")->fetch_assoc();
+// FIX: ->fetch_assoc() was called directly on the query result with no
+// check. If chatbot_settings is ever missing/renamed or the query fails,
+// $conn->query() returns false and calling ->fetch_assoc() on it is a
+// fatal error on EVERY page load (this code runs unconditionally at the
+// bottom of index.php). Guard it so a missing/broken table just hides
+// the widget instead of taking the whole app down.
+$_chatbotResult = $conn->query("SELECT enabled, allowed_roles FROM chatbot_settings LIMIT 1");
+$_chatbotRow = $_chatbotResult ? $_chatbotResult->fetch_assoc() : null;
 if (!empty($_chatbotRow['enabled'])) {
     $_chatbotAllowed = array_map('trim', explode(',', strtolower($_chatbotRow['allowed_roles'] ?? 'admin,superadmin,super admin')));
     $_currentRole    = strtolower($_SESSION['role'] ?? '');
