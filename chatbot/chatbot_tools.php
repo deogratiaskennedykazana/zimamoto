@@ -123,9 +123,13 @@ function chatbotGetSavingGLCrAccount(mysqli $conn, string $category): int
 
 function chatbotEnsureMemberSubAccounts(mysqli $conn, int $userId, int $branchId, string $name): void
 {
+    // Use prepared statements to avoid any SQL injection risk on userId
     foreach(['saving'=>'Savings Account','amana'=>'Amana Account','share'=>'Share Account','loan'=>'Loan Account'] as $cat=>$label){
-        $ex = $conn->query("SELECT id FROM min_subs WHERE user_id={$userId} AND category='{$cat}' LIMIT 1");
-        if ($ex && $ex->num_rows === 0) {
+        $chk=$conn->prepare("SELECT id FROM min_subs WHERE user_id=? AND category=? LIMIT 1");
+        if(!$chk) continue;
+        $chk->bind_param('is',$userId,$cat);$chk->execute();$chk->store_result();
+        $exists=$chk->num_rows>0;$chk->close();
+        if(!$exists){
             createMinsub($conn,"{$name} {$label}",$userId,1,$branchId,'debit',$cat);
         }
     }
@@ -401,17 +405,18 @@ function getToolRegistry(mysqli $conn, int $userId, string $userRole, int $branc
                 $member=$res['member'];$muid=(int)$member['user_id'];
                 $category=chatbotFuzzyMatch($p['category']??'all',['saving','amana','share','loan','all'])??'all';
                 $limit=min((int)($p['limit']??30),100);
-                $catWhere=$category==='all'?"ms.category IN ('saving','amana','share','loan')":" ms.category='{$category}'";
-                $dateWhere='';
-                if(!empty($p['date_from'])){$d=chatbotParseDate($p['date_from']);if($d) $dateWhere.=" AND mt.date_>='{$d}'";}
-                if(!empty($p['date_to'])){$d=chatbotParseDate($p['date_to']);if($d) $dateWhere.=" AND mt.date_<='{$d}'";}
+                // Use parameterised category binding to avoid interpolation
+                $where=['ms.user_id=?','mt.deleted_at IS NULL'];$types='i';$params=[$muid];
+                if($category!=='all'){$where[]='ms.category=?';$types.='s';$params[]=$category;}
+                if(!empty($p['date_from'])){$d=chatbotParseDate($p['date_from']);if($d){$where[]='mt.date_>=?';$types.='s';$params[]=$d;}}
+                if(!empty($p['date_to'])){$d=chatbotParseDate($p['date_to']);if($d){$where[]='mt.date_<=?';$types.='s';$params[]=$d;}}
                 $sql="SELECT mt.date_,mt.description,mt.amount,ms.category,ms.name AS account_name,mt.ref_no
                       FROM min_transactions mt JOIN min_subs ms ON ms.id=mt.dr_account
-                      WHERE ms.user_id=? AND {$catWhere} AND mt.deleted_at IS NULL {$dateWhere}
+                      WHERE ".implode(' AND ',$where)."
                       ORDER BY mt.date_ DESC,mt.id DESC LIMIT {$limit}";
                 $stmt=$conn->prepare($sql);
                 if(!$stmt) return ['ok'=>false,'message'=>'Query failed.','data'=>null];
-                $stmt->bind_param('i',$muid);$stmt->execute();$rows=stmt_fetch_all($stmt);$stmt->close();
+                $stmt->bind_param($types,...$params);$stmt->execute();$rows=stmt_fetch_all($stmt);$stmt->close();
                 if(empty($rows)) return ['ok'=>true,'message'=>"No transactions found for {$member['name']}.",'data'=>[]];
                 $catIcon=['saving'=>'💵','amana'=>'🏦','share'=>'📈','loan'=>'🏧'];
                 $lines=["📄 Statement: {$member['name']} | ".strtoupper($category)."\n"];
@@ -1526,12 +1531,18 @@ function chatbotHandleWizard(string $userMessage, mysqli $conn, int $userId,
         chatbotClearWizard();
         return ['handled'=>true,'reply'=>"Wizard cancelled. What else can I help you with?"];
     }
+    // Safety: ensure wizard has required structure
+    if(!isset($wizard['step'],$wizard['fields'],$wizard['type'],$wizard['data'])){
+        chatbotClearWizard();
+        return ['handled'=>true,'reply'=>"⚠️ Wizard session corrupted. Please start again."];
+    }
     $currentStep=$wizard['step'];$fields=$wizard['fields'];
 
     if($currentStep>=count($fields)){
         if($wizard['awaiting_confirm']??false){
             if(isConfirmation($userMessage)){$wizard['awaiting_confirm']=false;chatbotSetWizard($wizard);return chatbotExecuteWizard($wizard,$conn,$userId,$userRole,$branchId);}
             elseif(isCancellation($userMessage)){chatbotClearWizard();return ['handled'=>true,'reply'=>"Wizard cancelled."];}
+            // Re-show summary if they typed something else
             return chatbotWizardSummary($wizard);
         }
         return chatbotExecuteWizard($wizard,$conn,$userId,$userRole,$branchId);
@@ -1558,6 +1569,92 @@ function chatbotHandleWizard(string $userMessage, mysqli $conn, int $userId,
             if(strtolower($value)==='skip') $value=$field['default']??'';break;
         case 'password':
             if(strlen($value)<8){$error="Password must be at least 8 characters.";break;}break;
+
+        // ── Smart member search: resolves name/reg/phone → stores member_id in data, shows details ──
+        case 'member_search':
+            $like='%'.trim($value).'%';
+            $mStmt=$conn->prepare(
+                "SELECT m.id,u.name,m.reg_no,m.phone,m.status FROM members m "
+               ."JOIN users u ON u.id=m.user_id "
+               ."WHERE (u.name LIKE ? OR m.reg_no LIKE ? OR m.phone LIKE ?) "
+               ."AND m.deleted_at IS NULL LIMIT 5"
+            );
+            $mResults=[];
+            if($mStmt){$mStmt->bind_param('sss',$like,$like,$like);$mStmt->execute();$mResults=stmt_fetch_all($mStmt);$mStmt->close();}
+            if(empty($mResults)){
+                // Show re-prompt with hint so admin knows what to type
+                $hint=$field['hint']??'Type a name, reg number, or phone.';
+                return ['handled'=>true,'reply'=>"⚠️ No member found matching **'{$value}'**.\nTry a different name, reg number, or phone.\n\n💡 {$hint}"];
+            }
+            if(count($mResults)===1){
+                $found=$mResults[0];
+                $statusIcon=['approved'=>'✅','pending'=>'⏳','rejected'=>'❌'][$found['status']]??'•';
+                $wizard['data']['member_id']=(string)$found['id'];
+                $wizard['data']['_member_display']="{$statusIcon} {$found['name']} | Reg:{$found['reg_no']} | Phone:{$found['phone']}";
+                $wizard['step']++;
+                if($wizard['step']>=count($fields)){
+                    $wizard['awaiting_confirm']=true;chatbotSetWizard($wizard);
+                    return chatbotWizardSummary($wizard);
+                }
+                chatbotSetWizard($wizard);
+                $next=$fields[$wizard['step']];
+                $progress="Step ".($wizard['step']+1)."/".count($fields);
+                return ['handled'=>true,'reply'=>"✅ Member: **{$found['name']}** (Reg:{$found['reg_no']})\n\n[{$progress}] {$next['prompt']}".(!empty($next['hint'])?"\n💡 {$next['hint']}":'')];
+            }
+            // Multiple matches — list them and keep wizard on same step so admin retries
+            $matchLines=["Found ".count($mResults)." members. Please be more specific (type full name or reg number):"];
+            foreach($mResults as $r){
+                $icon=['approved'=>'✅','pending'=>'⏳','rejected'=>'❌'][$r['status']]??'•';
+                $matchLines[]="  {$icon} {$r['name']} | Reg:{$r['reg_no']} | Phone:{$r['phone']}";
+            }
+            // Do NOT advance step — let admin retry
+            return ['handled'=>true,'reply'=>implode("\n",$matchLines)];
+
+        // ── Smart branch search: resolves branch name → stores branch_id ──
+        case 'branch_search':
+            $branchMap=$field['branch_names']??[];
+            if(empty($branchMap)){
+                // No branch map loaded — fallback: accept numeric ID
+                if(is_numeric($value)&&(int)$value>0){$value=(string)(int)$value;break;}
+                $error='No branches available. Contact your system administrator.';break;
+            }
+            $matched=chatbotFuzzyMatch($value,array_values($branchMap));
+            if($matched){
+                $bid=array_search($matched,$branchMap,true);
+                $value=$bid!==false?(string)$bid:'0';
+                if((int)$value<=0){$error='Could not resolve branch ID.';break;}
+                break;
+            }
+            // Fallback: numeric ID typed directly
+            if(is_numeric($value)&&isset($branchMap[(int)$value])){
+                $value=(string)(int)$value;
+                break;
+            }
+            // Re-show the branch list so admin can pick
+            $branchList=implode("\n",array_map(fn($n)=>"  • {$n}",array_values($branchMap)));
+            return ['handled'=>true,'reply'=>"⚠️ Branch **'{$value}'** not found.\nPlease type the branch name exactly as shown:\n{$branchList}"];
+
+        // ── Smart product search: resolves loan product name → stores loan_type_id ──
+        case 'product_search':
+            $productMap=$field['product_names']??[];
+            if(empty($productMap)){
+                if(is_numeric($value)&&(int)$value>0){$value=(string)(int)$value;break;}
+                $error='No loan products available. Please contact your administrator.';break;
+            }
+            $matched=chatbotFuzzyMatch($value,array_values($productMap));
+            if($matched){
+                $pid=array_search($matched,$productMap,true);
+                $value=$pid!==false?(string)$pid:'0';
+                if((int)$value<=0){$error='Could not resolve product ID.';break;}
+                break;
+            }
+            if(is_numeric($value)&&isset($productMap[(int)$value])){
+                $value=(string)(int)$value;
+                break;
+            }
+            // Re-show products so admin can pick correctly
+            $productList=implode("\n",array_map(fn($n)=>"  • {$n}",array_values($productMap)));
+            return ['handled'=>true,'reply'=>"⚠️ Product **'{$value}'** not found.\nPlease type the product name exactly as shown:\n{$productList}"];
     }
 
     if($error) return ['handled'=>true,'reply'=>"⚠️ {$error}\n\n".$field['prompt']];
@@ -1570,7 +1667,10 @@ function chatbotHandleWizard(string $userMessage, mysqli $conn, int $userId,
     chatbotSetWizard($wizard);
     $next=$fields[$wizard['step']];
     $progress="Step ".($wizard['step']+1)."/".count($fields);
-    return ['handled'=>true,'reply'=>"✅ Got it!\n\n[{$progress}] {$next['prompt']}".(!empty($next['hint'])?"\n💡 ".$next['hint']:'')];
+    // For member_search/branch_search/product_search, show the hint inline so admin knows what's expected
+    $nextHint='';
+    if(!empty($next['hint'])) $nextHint="\n💡 {$next['hint']}";
+    return ['handled'=>true,'reply'=>"✅ Got it!\n\n[{$progress}] {$next['prompt']}{$nextHint}"];
 }
 
 function chatbotWizardSummary(array $wizard): array
@@ -1578,8 +1678,28 @@ function chatbotWizardSummary(array $wizard): array
     $fields=$wizard['fields'];$data=$wizard['data'];
     $lines=["📋 **Please review before submitting:**\n"];
     foreach($fields as $f){
+        // member_search key is 'member_search' but the resolved value is stored under 'member_id'
+        if($f['key']==='member_search'){
+            $val=$data['_member_display']??($data['member_id']?'ID:'.$data['member_id']:'—');
+            $lines[]="• {$f['label']}: **{$val}**";
+            continue;
+        }
+        if($f['key']==='branch_id'){
+            $bNames=$f['branch_names']??[];
+            $raw=$data['branch_id']??'—';
+            $val=$bNames[(int)$raw]??"ID:{$raw}";
+            $lines[]="• {$f['label']}: **{$val}**";
+            continue;
+        }
+        if($f['key']==='loan_type_id'){
+            $pNames=$f['product_names']??[];
+            $raw=$data['loan_type_id']??'—';
+            $val=$pNames[(int)$raw]??"ID:{$raw}";
+            $lines[]="• {$f['label']}: **{$val}**";
+            continue;
+        }
         $val=$data[$f['key']]??'—';
-        $display=$f['type']==='amount'?'TZS '.number_format((float)$val):($f['type']==='password'?'(hidden)':$val);
+        $display=($f['type']==='amount')?'TZS '.number_format((float)$val):($f['type']==='password'?'(hidden)':$val);
         $lines[]="• {$f['label']}: **{$display}**";
     }
     $lines[]="\nType **yes** to submit or **no** to cancel.";
@@ -1603,15 +1723,19 @@ function chatbotExecuteWizard(array $wizard, mysqli $conn, int $userId,
     }
 
     if($type==='deposit_savings'){
-        $params=['member_id'=>$data['member_id']??'','category'=>$data['category']??'saving','amount'=>$data['amount']??0,'date'=>$data['date']??date('Y-m-d'),'description'=>$data['description']??''];
+        $membId=$data['member_id']??'';
+        if(!$membId||!is_numeric($membId)||(int)$membId<=0)
+            return ['handled'=>true,'reply'=>"❌ Deposit failed: no member resolved. Please restart the wizard."];
+        $params=['member_id'=>$membId,'category'=>$data['category']??'saving','amount'=>$data['amount']??0,'date'=>$data['date']??date('Y-m-d'),'description'=>$data['description']??''];
         $result=dispatchTool('deposit_savings',$params,$conn,$userId,$userRole,$branchId);
-        return ['handled'=>true,'reply'=>$result['ok']?"✅ ".$result['message']:"❌ ".$result['message']];
+        return ['handled'=>true,'reply'=>$result['ok']?$result['message']:"❌ ".$result['message']];
     }
 
     if($type==='register_member'){
         $name=trim($data['name']??'');$email=trim($data['email']??'');$phone=trim($data['phone']??'');
         $gender=trim($data['gender']??'male');$nida=trim($data['nida']??'');$birthdate=trim($data['birthdate']??'');
         $bTarget=(int)($data['branch_id']??$branchId);
+        if($bTarget<=0) $bTarget=$branchId; // fall back to session branch if fuzzy match yielded 0
         if(!$name||!$email||!$phone) return ['handled'=>true,'reply'=>"❌ Registration failed: name, email, and phone are required."];
         $chkStmt=$conn->prepare("SELECT id FROM users WHERE email=? LIMIT 1");
         $ex=null;if($chkStmt){$chkStmt->bind_param('s',$email);$chkStmt->execute();$ex=stmt_fetch_assoc($chkStmt);$chkStmt->close();}
@@ -1649,13 +1773,24 @@ function chatbotExecuteWizard(array $wizard, mysqli $conn, int $userId,
 
 function chatbotStartLoanWizard(mysqli $conn, int $userId, string $userRole, int $branchId): string
 {
+    // Pre-load products with names so user picks by name not ID
     $products=selectLoanTypes($conn);
-    $productList=is_array($products)?implode(', ',array_map(fn($p)=>"#{$p['id']}={$p['name']}",$products)):'No products found';
+    $productNames=[];$productHint='Type the product name.';
+    if(is_array($products)&&count($products)>0){
+        $productHint="Available loan products (type the name):\n";
+        foreach($products as $prod){
+            if(($prod['status']??'active')==='active'){
+                $productNames[$prod['id']]=$prod['name'];
+                $productHint.="  • {$prod['name']} | Rate:{$prod['interest_rate']}% | TZS ".number_format((float)$prod['min_amount'])."-".number_format((float)$prod['max_amount'])." | {$prod['min_period']}-{$prod['max_period']} months\n";
+            }
+        }
+        $productHint=rtrim($productHint);
+    }
     $fields=[
-        ['key'=>'amount',         'label'=>'Loan Amount',        'type'=>'amount',  'prompt'=>'How much do you want to borrow? (e.g. 500000 or 500k or 0.5m)','hint'=>'Enter the amount in TZS'],
-        ['key'=>'period',         'label'=>'Repayment Period',   'type'=>'integer', 'prompt'=>'How many months to repay?','hint'=>'E.g. 12 for one year'],
-        ['key'=>'loan_type_id',   'label'=>'Loan Product ID',    'type'=>'integer', 'prompt'=>"Which loan product? Available: {$productList}",'hint'=>'Enter the product ID number'],
-        ['key'=>'repayment_mode', 'label'=>'Repayment Mode',     'type'=>'select',  'prompt'=>'Repayment mode?','options'=>['salary','standing_order']],
+        ['key'=>'amount',         'label'=>'Loan Amount',      'type'=>'amount',         'prompt'=>'How much do you want to borrow? (e.g. 500000 or 500k or 0.5m)','hint'=>'Enter the amount in TZS'],
+        ['key'=>'period',         'label'=>'Repayment Period', 'type'=>'integer',        'prompt'=>'How many months to repay?','hint'=>'E.g. 12 for one year'],
+        ['key'=>'loan_type_id',   'label'=>'Loan Product',     'type'=>'product_search', 'prompt'=>'Which loan product?','hint'=>$productHint,'product_names'=>$productNames],
+        ['key'=>'repayment_mode', 'label'=>'Repayment Mode',   'type'=>'select',         'prompt'=>'Repayment mode?','options'=>['salary','standing_order']],
     ];
     $wizard=['type'=>'loan_application','step'=>0,'fields'=>$fields,'data'=>['user_id'=>$userId,'branch_id'=>$branchId]];
     chatbotSetWizard($wizard);
@@ -1665,12 +1800,25 @@ function chatbotStartLoanWizard(mysqli $conn, int $userId, string $userRole, int
 
 function chatbotStartDepositWizard(mysqli $conn, int $userId, string $userRole, int $branchId): string
 {
+    // Pre-fetch recent members so admin can search by name instead of typing an unknown ID
+    $adminRoles=['admin','superadmin','super admin'];
+    $isAdmin=in_array($userRole,$adminRoles,true);
+    $bWhere=(!$isAdmin&&$branchId>0)?"AND m.branch_id={$branchId}":'';
+    $recentRows=$conn->query("SELECT m.id,u.name,m.reg_no,m.phone FROM members m JOIN users u ON u.id=m.user_id WHERE m.deleted_at IS NULL AND m.status='approved' {$bWhere} ORDER BY u.name ASC LIMIT 10");
+    $memberHint='Type a name, reg number, or phone to search.';
+    if($recentRows&&$recentRows->num_rows>0){
+        $memberHint="Search by name or reg no. Recent members:\n";
+        while($r=$recentRows->fetch_assoc())
+            $memberHint.="  • {$r['name']} | Reg:{$r['reg_no']} | Phone:{$r['phone']}\n";
+        $memberHint=rtrim($memberHint);
+    }
+
     $fields=[
-        ['key'=>'member_id',   'label'=>'Member ID',    'type'=>'integer','prompt'=>'Enter the member ID to deposit for:','hint'=>'The numeric ID from the members list'],
-        ['key'=>'category',    'label'=>'Account Type', 'type'=>'select', 'prompt'=>'Which account? (saving, amana, or share)','options'=>['saving','amana','share'],'hint'=>'Choose the account type'],
-        ['key'=>'amount',      'label'=>'Amount',       'type'=>'amount', 'prompt'=>'How much to deposit? (e.g. 50000 or 50k)','hint'=>'Enter the amount in TZS'],
-        ['key'=>'date',        'label'=>'Date',         'type'=>'date',   'prompt'=>"Transaction date? (type 'today' for today)",'hint'=>'Format: YYYY-MM-DD or DD/MM/YYYY'],
-        ['key'=>'description', 'label'=>'Description',  'type'=>'skip_ok','prompt'=>"Description? (or type 'skip' for default)",'hint'=>'E.g. Monthly savings contribution','default'=>'Savings deposit via chatbot'],
+        ['key'=>'member_search','label'=>'Member',       'type'=>'member_search','prompt'=>'Who are you depositing for?','hint'=>$memberHint],
+        ['key'=>'category',    'label'=>'Account Type', 'type'=>'select',       'prompt'=>'Which account? (saving, amana, or share)','options'=>['saving','amana','share'],'hint'=>'Choose the account type'],
+        ['key'=>'amount',      'label'=>'Amount',       'type'=>'amount',       'prompt'=>'How much to deposit? (e.g. 50000 or 50k)','hint'=>'Enter the amount in TZS'],
+        ['key'=>'date',        'label'=>'Date',         'type'=>'date',         'prompt'=>"Transaction date? (type 'today' for today)",'hint'=>'Format: YYYY-MM-DD or DD/MM/YYYY'],
+        ['key'=>'description', 'label'=>'Description',  'type'=>'skip_ok',      'prompt'=>"Description? (or type 'skip' for default)",'hint'=>'E.g. Monthly savings contribution','default'=>'Savings deposit via chatbot'],
     ];
     $wizard=['type'=>'deposit_savings','step'=>0,'fields'=>$fields,'data'=>[]];
     chatbotSetWizard($wizard);
@@ -1680,16 +1828,25 @@ function chatbotStartDepositWizard(mysqli $conn, int $userId, string $userRole, 
 
 function chatbotStartMemberRegistrationWizard(mysqli $conn, int $userId, string $userRole, int $branchId): string
 {
+    // Pre-load branches with names so admin picks by name, not ID
     $branches=$conn->query("SELECT id,name FROM branches WHERE deleted_at IS NULL ORDER BY name LIMIT 20");
-    $branchList='';if($branches) while($b=$branches->fetch_assoc()) $branchList.="#{$b['id']}={$b['name']} ";
+    $branchNames=[];$branchHint='Type the branch name.';
+    if($branches&&$branches->num_rows>0){
+        $branchHint="Available branches (type the name):\n";
+        while($b=$branches->fetch_assoc()){
+            $branchNames[$b['id']]=$b['name'];
+            $branchHint.="  • {$b['name']}\n";
+        }
+        $branchHint=rtrim($branchHint);
+    }
     $fields=[
-        ['key'=>'name',      'label'=>'Full Name',  'type'=>'text',    'prompt'=>'Full name of the new member:'],
-        ['key'=>'email',     'label'=>'Email',      'type'=>'email',   'prompt'=>'Email address:','hint'=>'Will be used as login username'],
-        ['key'=>'phone',     'label'=>'Phone',      'type'=>'phone',   'prompt'=>'Phone number:','hint'=>'E.g. 0712345678'],
-        ['key'=>'gender',    'label'=>'Gender',     'type'=>'select',  'prompt'=>'Gender?','options'=>['male','female']],
-        ['key'=>'birthdate', 'label'=>'Birth Date', 'type'=>'date',    'prompt'=>'Date of birth:','hint'=>'YYYY-MM-DD or DD/MM/YYYY'],
-        ['key'=>'nida',      'label'=>'NIDA',       'type'=>'nida',    'prompt'=>'NIDA number (20 digits):','hint'=>'Digits only'],
-        ['key'=>'branch_id', 'label'=>'Branch ID',  'type'=>'integer', 'prompt'=>"Branch? Available: ".rtrim($branchList),'hint'=>'Enter the branch ID number'],
+        ['key'=>'name',      'label'=>'Full Name',  'type'=>'text',          'prompt'=>'Full name of the new member:'],
+        ['key'=>'email',     'label'=>'Email',      'type'=>'email',         'prompt'=>'Email address:','hint'=>'Will be used as login username'],
+        ['key'=>'phone',     'label'=>'Phone',      'type'=>'phone',         'prompt'=>'Phone number:','hint'=>'E.g. 0712345678'],
+        ['key'=>'gender',    'label'=>'Gender',     'type'=>'select',        'prompt'=>'Gender?','options'=>['male','female']],
+        ['key'=>'birthdate', 'label'=>'Birth Date', 'type'=>'date',          'prompt'=>'Date of birth:','hint'=>'YYYY-MM-DD or DD/MM/YYYY'],
+        ['key'=>'nida',      'label'=>'NIDA',       'type'=>'nida',          'prompt'=>'NIDA number (20 digits):','hint'=>'Digits only'],
+        ['key'=>'branch_id', 'label'=>'Branch',     'type'=>'branch_search', 'prompt'=>'Which branch?','hint'=>$branchHint,'branch_names'=>$branchNames],
     ];
     $wizard=['type'=>'register_member','step'=>0,'fields'=>$fields,'data'=>[]];
     chatbotSetWizard($wizard);
@@ -1701,15 +1858,23 @@ function chatbotStartCreateUserWizard(mysqli $conn, int $userId, string $userRol
 {
     $roles=['member','accountant','manager','chairman','loan comitee','admin'];
     $branches=$conn->query("SELECT id,name FROM branches WHERE deleted_at IS NULL ORDER BY name LIMIT 20");
-    $branchList='';if($branches) while($b=$branches->fetch_assoc()) $branchList.="#{$b['id']}={$b['name']} ";
+    $branchNames=[];$branchHint='Type the branch name.';
+    if($branches&&$branches->num_rows>0){
+        $branchHint="Available branches (type the name):\n";
+        while($b=$branches->fetch_assoc()){
+            $branchNames[$b['id']]=$b['name'];
+            $branchHint.="  • {$b['name']}\n";
+        }
+        $branchHint=rtrim($branchHint);
+    }
     $fields=[
-        ['key'=>'name',      'label'=>'Full Name',  'type'=>'text',    'prompt'=>'Full name of the new user:'],
-        ['key'=>'email',     'label'=>'Email',      'type'=>'email',   'prompt'=>'Email (used for login):'],
-        ['key'=>'password',  'label'=>'Password',   'type'=>'password','prompt'=>'Initial password (min 8 chars):','hint'=>'Share this securely with the user'],
-        ['key'=>'role',      'label'=>'Role',       'type'=>'select',  'prompt'=>'Role? ('.implode(', ',$roles).')','options'=>$roles],
-        ['key'=>'branch_id', 'label'=>'Branch',     'type'=>'integer', 'prompt'=>"Branch? Available: ".rtrim($branchList),'hint'=>'Enter the branch ID'],
-        ['key'=>'phone',     'label'=>'Phone',      'type'=>'phone',   'prompt'=>'Phone number:','hint'=>'E.g. 0712345678'],
-        ['key'=>'gender',    'label'=>'Gender',     'type'=>'select',  'prompt'=>'Gender?','options'=>['male','female']],
+        ['key'=>'name',      'label'=>'Full Name',  'type'=>'text',          'prompt'=>'Full name of the new user:'],
+        ['key'=>'email',     'label'=>'Email',      'type'=>'email',         'prompt'=>'Email (used for login):'],
+        ['key'=>'password',  'label'=>'Password',   'type'=>'password',      'prompt'=>'Initial password (min 8 chars):','hint'=>'Share this securely with the user'],
+        ['key'=>'role',      'label'=>'Role',       'type'=>'select',        'prompt'=>'Role? ('.implode(', ',$roles).')','options'=>$roles],
+        ['key'=>'branch_id', 'label'=>'Branch',     'type'=>'branch_search', 'prompt'=>'Which branch?','hint'=>$branchHint,'branch_names'=>$branchNames],
+        ['key'=>'phone',     'label'=>'Phone',      'type'=>'phone',         'prompt'=>'Phone number:','hint'=>'E.g. 0712345678'],
+        ['key'=>'gender',    'label'=>'Gender',     'type'=>'select',        'prompt'=>'Gender?','options'=>['male','female']],
     ];
     $wizard=['type'=>'create_user','step'=>0,'fields'=>$fields,'data'=>[]];
     chatbotSetWizard($wizard);
