@@ -90,6 +90,18 @@ $isAdmin  = in_array($userRole, ['admin','superadmin','super admin'], true);
     transition: background .2s, transform .1s;
 }
 .zima-msg .zima-nav-btn:hover { background: linear-gradient(135deg,#0056b3,#003d82); transform: translateY(-1px); }
+.zima-link-row {
+    display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px;
+    padding-top: 8px; border-top: 1px solid #e9ecef;
+}
+.zima-link-btn {
+    display: inline-block; padding: 5px 12px;
+    background: #f0f4ff; color: #0056b3 !important; border-radius: 6px;
+    font-size: 12px; font-weight: 600; text-decoration: none;
+    border: 1px solid #c5d6f7; transition: background .15s, transform .1s;
+    white-space: nowrap;
+}
+.zima-link-btn:hover { background: #007bff; color: #fff !important; transform: translateY(-1px); }
 .zima-typing {
     align-self: flex-start; padding: 9px 13px; background: #fff;
     border: 1px solid #dde3ea; border-radius: 14px;
@@ -270,6 +282,15 @@ $isAdmin  = in_array($userRole, ['admin','superadmin','super admin'], true);
                 html += '<br><a class="zima-nav-btn" href="' + escAttr(data.nav_url)
                       + '"><i class="fas fa-arrow-right mr-1"></i>Go to: '
                       + escHtml(data.nav_label) + ' →</a>';
+            }
+
+            // Render [LINK:] buttons from tool results (parameterized deep-links)
+            if (data.nav_links && data.nav_links.length > 0) {
+                html += '<div class="zima-link-row">';
+                data.nav_links.forEach(function(lnk) {
+                    html += '<a class="zima-link-btn" href="' + escAttr(lnk.url) + '">' + escHtml(lnk.label) + '</a>';
+                });
+                html += '</div>';
             }
 
             var msgClass = isConfirmPrompt ? 'confirm-msg' : '';

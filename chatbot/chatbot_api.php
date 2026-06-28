@@ -289,6 +289,33 @@ if($toolCall!==null){
 }
 
 // ═════════════════════════════════════════════════════════
+//  LINK TOKEN EXTRACTOR
+//  Parses [LINK:page&params|Label] tokens from reply text,
+//  strips them, and returns structured nav_links array.
+// ═════════════════════════════════════════════════════════
+function extractLinkTokens(string &$text): array
+{
+    $links=[];
+    // Format: [LINK:page_slug&key=val&key2=val2|Button Label]
+    // or simply [LINK:page_slug|Label]
+    if(preg_match_all('/\[LINK:([^|\]]+)\|([^\]]+)\]/',$text,$matches,PREG_SET_ORDER)){
+        foreach($matches as $m){
+            $raw=$m[0];
+            $pageAndParams=trim($m[1]);
+            $label=trim($m[2]);
+            // Build URL: first segment before & is the page slug, rest are GET params
+            $parts=explode('&',$pageAndParams,2);
+            $slug=$parts[0];
+            $query=isset($parts[1])?'&'.ltrim($parts[1],'&'):'';
+            $url='./?page='.rawurlencode($slug).$query;
+            $links[]=['label'=>$label,'url'=>$url,'slug'=>$slug];
+            $text=str_replace($raw,'',$text);
+        }
+    }
+    return $links;
+}
+
+// ═════════════════════════════════════════════════════════
 //  NAVIGATION TOKEN
 // ═════════════════════════════════════════════════════════
 $navigateTo=null;$navUrl=null;$navLabel=null;
@@ -312,6 +339,11 @@ chatbotLogAudit($conn,$userId,$userRole,$userMessage,$action,$navigateTo);
 ob_end_clean();
 $response=['reply'=>$replyText];
 if($navigateTo){$response['navigate_to']=$navigateTo;$response['nav_url']=$navUrl;$response['nav_label']=$navLabel;}
+// Extract [LINK:page&param=val|Label] tokens embedded in tool result messages
+$navLinks=extractLinkTokens($replyText);
+$replyText=trim($replyText);
+$response['reply']=$replyText; // update after link extraction
+if(!empty($navLinks)) $response['nav_links']=$navLinks;
 if($toolResult!==null) $response['tool_result']=['ok'=>$toolResult['ok'],'message'=>$toolResult['message']];
 echo json_encode($response,JSON_UNESCAPED_UNICODE);exit;
 
@@ -538,7 +570,7 @@ NATURAL LANGUAGE → TOOL MAPPING (use these patterns every time):
 • "amana and shares for [name]" / "amana na hisa" → call get_member_details which includes all balances
 • "all data for [name]" / "everything about [name]" → [TOOL:get_member_details|name_search=NAME]
 • "transactions for [name]" / "history for [name]" → [TOOL:get_member_statement|name_search=NAME|category=all]
-• "edit [name]" / "update member [name]" → respond with link to edit member page [NAVIGATE:edit_member] and explain admin can search by name there
+• "edit [name]" / "update member [name]" / "badilisha [name]" → [TOOL:get_member_links|name_search=NAME] — this returns a direct edit link for that member
 • "pending loans" → [TOOL:list_loans|status=pending]
 • "approved loans" → [TOOL:list_loans|status=approved]
 Always call a tool when the user asks for data — never say "I don't have that" when a tool exists.

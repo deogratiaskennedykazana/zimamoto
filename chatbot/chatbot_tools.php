@@ -73,25 +73,44 @@ function chatbotResolveMember(mysqli $conn, array $p, int $callerUserId, string 
 {
     $adminRoles = ['admin','superadmin','super admin'];
     $member = null;
-    $base = "SELECT m.*,u.name,u.email,u.status AS user_status,b.name AS branch_name
-              FROM members m JOIN users u ON u.id=m.user_id
-              LEFT JOIN branches b ON b.id=m.branch_id WHERE m.deleted_at IS NULL";
+    $base = "SELECT m.id,m.user_id,m.reg_no,m.phone,m.address,m.birthdate,m.branch_id,m.gender,
+                     m.nida,m.check_no,m.status,m.created_at,
+                     u.name,u.email,u.status AS user_status,
+                     b.name AS branch_name
+              FROM members m
+              JOIN users u ON u.id=m.user_id
+              LEFT JOIN branches b ON b.id=m.branch_id
+              WHERE m.deleted_at IS NULL AND u.deleted_at IS NULL";
 
     if (!empty($p['member_id'])) {
-        $member = selectMemberById($conn,(int)$p['member_id']);
+        // selectMemberById may not exist — use inline query instead
+        $mid=(int)$p['member_id'];
+        $stmt=$conn->prepare($base." AND m.id=? LIMIT 1");
+        if($stmt){$stmt->bind_param('i',$mid);$stmt->execute();$member=stmt_fetch_assoc($stmt);$stmt->close();}
     } elseif (!empty($p['reg_no'])) {
         $stmt = $conn->prepare($base." AND m.reg_no=? LIMIT 1");
         if ($stmt){$stmt->bind_param('s',$p['reg_no']);$stmt->execute();$member=stmt_fetch_assoc($stmt);$stmt->close();}
     } elseif (!empty($p['name_search'])) {
-        $like='%'.trim($p['name_search']).'%';
-        $stmt=$conn->prepare($base." AND u.name LIKE ? LIMIT 1");
-        if($stmt){$stmt->bind_param('s',$like);$stmt->execute();$member=stmt_fetch_assoc($stmt);$stmt->close();}
+        // Try exact match first, then partial
+        $name=trim($p['name_search']);
+        $stmt=$conn->prepare($base." AND u.name=? LIMIT 1");
+        if($stmt){$stmt->bind_param('s',$name);$stmt->execute();$member=stmt_fetch_assoc($stmt);$stmt->close();}
+        if(!$member||!is_array($member)){
+            $like='%'.$name.'%';
+            $stmt=$conn->prepare($base." AND u.name LIKE ? LIMIT 1");
+            if($stmt){$stmt->bind_param('s',$like);$stmt->execute();$member=stmt_fetch_assoc($stmt);$stmt->close();}
+        }
+        // Also try matching against reg_no or phone in case admin typed those
+        if(!$member||!is_array($member)){
+            $stmt=$conn->prepare($base." AND (m.reg_no=? OR m.phone=?) LIMIT 1");
+            if($stmt){$stmt->bind_param('ss',$name,$name);$stmt->execute();$member=stmt_fetch_assoc($stmt);$stmt->close();}
+        }
     } elseif (!in_array($role,$adminRoles,true)) {
         $stmt=$conn->prepare($base." AND m.user_id=? LIMIT 1");
         if($stmt){$stmt->bind_param('i',$callerUserId);$stmt->execute();$member=stmt_fetch_assoc($stmt);$stmt->close();}
     }
 
-    if (!$member || !is_array($member)) return ['error'=>'Member not found. Provide member_id, reg_no, or name_search.'];
+    if (!$member || !is_array($member)) return ['error'=>'Member not found. Try full name, reg number, or member_id.'];
     if (!in_array($role,$adminRoles,true) && $branchId>0 && (int)($member['branch_id']??0)!==$branchId)
         return ['error'=>'Member is not in your branch.'];
     return ['member'=>$member];
@@ -220,6 +239,7 @@ function getToolRegistry(mysqli $conn, int $userId, string $userRole, int $branc
                 $msg.="  Shares : TZS ".number_format($savings['share']??0)."\n";
                 $msg.="  TOTAL  : TZS ".number_format(($savings['saving']??0)+($savings['amana']??0)+($savings['share']??0));
                 return ['ok'=>true,'message'=>$msg,'data'=>compact('members','loans','savings','pendingMem','overdue')];
+                // no link appended here — dashboard is its own context
             },
         ],
 
@@ -251,7 +271,7 @@ function getToolRegistry(mysqli $conn, int $userId, string $userRole, int $branc
                     $si=['pending'=>'⏳','approved'=>'✅','rejected'=>'❌'][$r['status']]??'•';
                     $lines[]="{$si} ID:{$r['id']} | {$r['member_name']} | {$r['product_name']} | TZS ".number_format((float)$r['principle'])." | Branch:{$r['branch_name']} | ".substr($r['created_at'],0,10);
                 }
-                return ['ok'=>true,'message'=>count($lines)." loan(s):\n".implode("\n",$lines),'data'=>$rows];
+                return ['ok'=>true,'message'=>count($lines)." loan(s):\n".implode("\n",$lines)."\n\n🔗 [LINK:loan_applications|📋 Loan Applications]  [LINK:pending_loan_list|⏳ Pending Loans]  [LINK:approved_loan_list|✅ Approved Loans]",'data'=>$rows];
             },
         ],
 
@@ -333,6 +353,27 @@ function getToolRegistry(mysqli $conn, int $userId, string $userRole, int $branc
         // ══════════════════════════════════════════════════════
         //  MEMBER READ TOOLS
         // ══════════════════════════════════════════════════════
+
+        // get_member_links: resolves a member by name/reg/id and returns
+        // direct clickable page links (edit, view loans, statement)
+        'get_member_links' => [
+            'description'   => 'Get direct page links for a member (edit page, loan page). Params: name_search OR member_id OR reg_no.',
+            'params'        => ['name_search','member_id','reg_no'],
+            'allowed_roles' => $adminRoles,
+            'module'=>'members','permission'=>'can_view','is_write'=>false,
+            'handler' => function(mysqli $conn, array $p, int $userId, string $role, int $branchId) {
+                $res=chatbotResolveMember($conn,$p,$userId,$role,$branchId);
+                if(isset($res['error'])) return ['ok'=>false,'message'=>$res['error'],'data'=>null];
+                $m=$res['member'];
+                $mid=(int)$m['id']; $bid=(int)($m['branch_id']??0);
+                $msg="🔗 **Links for {$m['name']}** (ID:{$mid} | Reg:{$m['reg_no']})\n";
+                $msg.="[LINK:edit_member&member_id={$mid}&branch_id={$bid}|✏️ Edit Member]\n";
+                $msg.="[LINK:all_member_list|👥 All Members]\n";
+                $msg.="[LINK:transaction_list|📄 Transactions]";
+                return ['ok'=>true,'message'=>$msg,'data'=>['member_id'=>$mid,'branch_id'=>$bid,'name'=>$m['name'],'reg_no'=>$m['reg_no']]];
+            },
+        ],
+
         'list_members' => [
             'description'   => 'List/filter members. Params: search(name/reg_no/phone), branch_id, status(approved|pending|rejected), sort_by(name|created_at), sort_dir, limit.',
             'params'        => ['search','branch_id','status','sort_by','sort_dir','limit'],
@@ -366,7 +407,7 @@ function getToolRegistry(mysqli $conn, int $userId, string $userRole, int $branc
                     $icon=['approved'=>'✅','pending'=>'⏳','rejected'=>'❌'][$r['status']]??'•';
                     $lines[]="{$icon} #{$r['id']} {$r['name']} | Reg:{$r['reg_no']} | Branch:{$r['branch_name']} | Phone:{$r['phone']}";
                 }
-                return ['ok'=>true,'message'=>count($lines)." member(s):\n".implode("\n",$lines),'data'=>$rows];
+                return ['ok'=>true,'message'=>count($lines)." member(s):\n".implode("\n",$lines)."\n\n🔗 [LINK:all_member_list|👥 Full Member List]  [LINK:register_member|➕ Register Member]",'data'=>$rows];
             },
         ],
 
@@ -390,6 +431,9 @@ function getToolRegistry(mysqli $conn, int $userId, string $userRole, int $branc
                 $msg.="Status:".(['approved'=>'✅ Approved','pending'=>'⏳ Pending','rejected'=>'❌ Rejected'][$member['status']]??$member['status'])." | NIDA:{$member['nida']}\n";
                 $msg.="💰 Saving:TZS ".number_format($savings['saving'])." | Amana:TZS ".number_format($savings['amana'])." | Share:TZS ".number_format($savings['share'])." | Total:TZS ".number_format($savings['total'])."\n";
                 $msg.="🏦 Active loans:{$outstanding['active_loan_count']} | Outstanding:TZS ".number_format($outstanding['outstanding_balance']);
+                // Append direct links for this member
+                $mid2=(int)$member['id'];$bid2=(int)($member['branch_id']??0);
+                $msg.="\n\n🔗 [LINK:edit_member&member_id={$mid2}&branch_id={$bid2}|✏️ Edit Member]  [LINK:all_member_list|👥 All Members]";
                 return ['ok'=>true,'message'=>$msg,'data'=>compact('member','savings','outstanding')];
             },
         ],
