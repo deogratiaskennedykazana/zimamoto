@@ -149,7 +149,12 @@ function sendGrantorRequest(mysqli $conn, int $loanId, int $grantorId, int $appl
     return $notifId;
 }
 
-function selectGrantorPendingRequests(mysqli $conn, int $grantorId) {
+function selectGrantorPendingRequests(mysqli $conn, int|string|null $grantorId) {
+    $grantorId = (int)($grantorId ?? 0);
+    if ($grantorId <= 0) {
+        return [];
+    }
+
     $sql = "SELECT gn.*, u.name AS applicant_name, l.principle, l.period, lt.name AS loan_type
             FROM grantor_notifications gn
             JOIN users u ON gn.applicant_id = u.id
@@ -196,7 +201,12 @@ function respondToGrantorRequest(mysqli $conn, string $token, string $status, st
     return true;
 }
 
-function selectGrantorNotificationsByLoanId(mysqli $conn, int $loanId) {
+function selectGrantorNotificationsByLoanId(mysqli $conn, int|string|null $loanId) {
+    $loanId = (int)($loanId ?? 0);
+    if ($loanId <= 0) {
+        return [];
+    }
+
     $sql = "SELECT gn.*, u.name AS grantor_name FROM grantor_notifications gn 
             JOIN users u ON gn.grantor_id = u.id 
             WHERE gn.loan_id = ? ORDER BY gn.sent_at DESC";
@@ -209,7 +219,12 @@ function selectGrantorNotificationsByLoanId(mysqli $conn, int $loanId) {
 /**
  * All grantor_notification rows for a given grantor (all statuses) — used for history view.
  */
-function selectAllGrantorNotificationsForGrantor(mysqli $conn, int $grantorId) {
+function selectAllGrantorNotificationsForGrantor(mysqli $conn, int|string|null $grantorId) {
+    $grantorId = (int)($grantorId ?? 0);
+    if ($grantorId <= 0) {
+        return [];
+    }
+
     $sql = "SELECT gn.*, u.name AS applicant_name, l.principle, l.period, lt.name AS loan_type
             FROM grantor_notifications gn
             JOIN users u ON gn.applicant_id = u.id
