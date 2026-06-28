@@ -83,11 +83,13 @@ $isAdmin  = in_array($userRole, ['admin','superadmin','super admin'], true);
 .zima-btn-no  { background: #dc3545; color: #fff; }
 .zima-btn-no:hover  { background: #bd2130; }
 .zima-msg .zima-nav-btn {
-    display: inline-block; margin-top: 8px; padding: 5px 12px;
-    background: #007bff; color: #fff !important; border-radius: 6px;
-    font-size: 12px; text-decoration: none; font-weight: 600;
+    display: inline-block; margin-top: 10px; padding: 7px 16px;
+    background: linear-gradient(135deg,#007bff,#0056b3); color: #fff !important; border-radius: 8px;
+    font-size: 13px; text-decoration: none; font-weight: 700;
+    box-shadow: 0 2px 8px rgba(0,91,187,.25); letter-spacing:.2px;
+    transition: background .2s, transform .1s;
 }
-.zima-msg .zima-nav-btn:hover { background: #0056b3; }
+.zima-msg .zima-nav-btn:hover { background: linear-gradient(135deg,#0056b3,#003d82); transform: translateY(-1px); }
 .zima-typing {
     align-self: flex-start; padding: 9px 13px; background: #fff;
     border: 1px solid #dde3ea; border-radius: 14px;
@@ -150,10 +152,11 @@ $isAdmin  = in_array($userRole, ['admin','superadmin','super admin'], true);
     <div id="zima-quick-actions">
         <span style="font-size:10px;color:#6c757d;align-self:center;">Quick:</span>
         <button class="zima-qa-btn" onclick="zimaSend('Show me pending loans')">⏳ Pending Loans</button>
-        <button class="zima-qa-btn" onclick="zimaSend('List all members')">👥 Members</button>
+        <button class="zima-qa-btn" onclick="zimaSend('List all members')">👥 All Members</button>
         <button class="zima-qa-btn" onclick="zimaSend('Show all loan products')">📋 Products</button>
         <button class="zima-qa-btn" onclick="zimaSend('Show branches')">🏢 Branches</button>
         <button class="zima-qa-btn" onclick="zimaSend('Show approved loans this month')">✅ Approved</button>
+        <button class="zima-qa-btn" onclick="zimaSend('Dashboard stats')">📊 Dashboard</button>
     </div>
     <?php endif; ?>
 
@@ -162,10 +165,11 @@ $isAdmin  = in_array($userRole, ['admin','superadmin','super admin'], true);
             👋 Habari! I'm your SACCOS data assistant.<br>
             <?php if ($isAdmin): ?>
             As admin, I can:<br>
-            • <strong>Query</strong> loans, members, branches (with filters &amp; sorting)<br>
-            • <strong>Reject or approve</strong> loan applications<br>
-            • <strong>Edit</strong> member info and loan products<br>
+            • <strong>Query</strong> members, amana, shares, savings, loans (by name or filter)<br>
+            • <strong>Approve/reject</strong> loans &amp; member registrations<br>
+            • <strong>Deposit</strong> to any member account<br>
             • <strong>Navigate</strong> you to any page<br>
+            <small style="color:#888;">Try: <em>"show amana for Musa"</em>, <em>"list all members"</em>, <em>"edit John"</em></small>
             <?php else: ?>
             I can answer questions about your account, loans, and navigate you around the system.<br>
             <?php endif; ?>
@@ -264,8 +268,8 @@ $isAdmin  = in_array($userRole, ['admin','superadmin','super admin'], true);
 
             if (data.navigate_to && data.nav_url && data.nav_label) {
                 html += '<br><a class="zima-nav-btn" href="' + escAttr(data.nav_url)
-                      + '" onclick="zimaChatToggle()"><i class="fas fa-arrow-right mr-1"></i>Open: '
-                      + escHtml(data.nav_label) + '</a>';
+                      + '"><i class="fas fa-arrow-right mr-1"></i>Go to: '
+                      + escHtml(data.nav_label) + ' →</a>';
             }
 
             var msgClass = isConfirmPrompt ? 'confirm-msg' : '';

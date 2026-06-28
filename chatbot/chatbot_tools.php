@@ -1657,7 +1657,10 @@ function chatbotHandleWizard(string $userMessage, mysqli $conn, int $userId,
             return ['handled'=>true,'reply'=>"⚠️ Product **'{$value}'** not found.\nPlease type the product name exactly as shown:\n{$productList}"];
     }
 
-    if($error) return ['handled'=>true,'reply'=>"⚠️ {$error}\n\n".$field['prompt']];
+    if($error){
+        $rehint=!empty($field['hint'])? "\n💡 ".$field['hint'] : '';
+        return ['handled'=>true,'reply'=>"[Step ".($currentStep+1)."/".count($fields)."] ".$field['prompt'].$rehint."\n\n⚠️ {$error}"];
+    }
     $wizard=chatbotWizardStep($wizard,$value);
 
     if($wizard['step']>=count($fields)){

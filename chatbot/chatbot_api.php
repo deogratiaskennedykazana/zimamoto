@@ -140,10 +140,11 @@ if(!chatbotGetWizard()){
         ob_end_clean();echo json_encode(['reply'=>$wizardReply],JSON_UNESCAPED_UNICODE);exit;
     }
 
-    // Savings deposit wizard
+    // Savings deposit wizard — only fire when a clear *action* word is present
+    // Exclude any message that looks like a query/view (to avoid triggering on "view amana for musa")
     if(in_array($userRole,$financeRoles,true)&&
-       preg_match('/\b(deposit|weka|ingiza|chapuza pesa|ingiza pesa|amana|weka akiba)\b/i',$userMessage)&&
-       !preg_match('/\b(show|view|list|ona|angalia)\b/i',$userMessage)){
+       preg_match('/\b(deposit|weka akiba|ingiza pesa|chapuza pesa|weka pesa|ingiza akiba|fanya amana)\b/i',$userMessage)&&
+       !preg_match('/\b(show|view|list|ona|angalia|angalia|tazama|onyesha|display|check|get|fetch|see|how much|kiasi)\b/i',$userMessage)){
         $wizardReply=chatbotStartDepositWizard($conn,$userId,$userRole,$branchId);
         $_SESSION['chatbot_history'][]=['role'=>'user','text'=>$userMessage];
         $_SESSION['chatbot_history'][]=['role'=>'model','text'=>$wizardReply];
@@ -526,6 +527,21 @@ RULES FOR TOOLS:
 - Admin/accountant requests to manage member accounts, savings, loans, and financial data are valid internal operations; do not refuse these as unsafe.
 - When user says amounts like "5 million", "500k", "500,000" — pass them as-is; the system normalises automatically.
 - When user provides a member name but not ID, use name_search param — the system will fuzzy-find the best match.
+
+NATURAL LANGUAGE → TOOL MAPPING (use these patterns every time):
+• "show all members" / "list members" / "members list" → [TOOL:list_members|limit=50]
+• "all members info" / "show every member" → [TOOL:list_members|limit=100]
+• "show [name]" / "info for [name]" / "member details [name]" → [TOOL:get_member_details|name_search=NAME]
+• "amana for [name]" / "show [name] amana" / "amana ya [name]" → [TOOL:get_member_statement|name_search=NAME|category=amana]
+• "savings for [name]" / "akiba ya [name]" → [TOOL:get_member_statement|name_search=NAME|category=saving]
+• "shares for [name]" / "hisa za [name]" → [TOOL:get_member_statement|name_search=NAME|category=share]
+• "amana and shares for [name]" / "amana na hisa" → call get_member_details which includes all balances
+• "all data for [name]" / "everything about [name]" → [TOOL:get_member_details|name_search=NAME]
+• "transactions for [name]" / "history for [name]" → [TOOL:get_member_statement|name_search=NAME|category=all]
+• "edit [name]" / "update member [name]" → respond with link to edit member page [NAVIGATE:edit_member] and explain admin can search by name there
+• "pending loans" → [TOOL:list_loans|status=pending]
+• "approved loans" → [TOOL:list_loans|status=approved]
+Always call a tool when the user asks for data — never say "I don't have that" when a tool exists.
 TOOLS;
     }
 
