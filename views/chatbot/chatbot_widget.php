@@ -13,13 +13,34 @@ $isAdmin  = in_array($userRole, ['admin','superadmin','super admin'], true);
 <style>
 #zima-chatbot-bubble {
     position: fixed; bottom: 28px; right: 28px; z-index: 9999;
-    width: 52px; height: 52px; border-radius: 50%;
+    width: 60px; height: 60px; border-radius: 50%;
     background: #007bff; color: #fff; border: none;
     box-shadow: 0 4px 16px rgba(0,0,0,.25); font-size: 22px;
     cursor: pointer; display: flex; align-items: center;
-    justify-content: center; transition: background .2s, transform .15s;
+    justify-content: center; transition: transform .15s, box-shadow .2s;
+    padding: 0; overflow: hidden;
+    animation: zima-bubble-float 2.6s ease-in-out infinite, zima-bubble-ring 2.6s ease-out infinite;
 }
-#zima-chatbot-bubble:hover { background: #0056b3; transform: scale(1.08); }
+#zima-chatbot-bubble:hover { transform: scale(1.08); animation-play-state: paused; }
+#zima-chatbot-bubble img {
+    width: 100%; height: 100%; object-fit: cover; border-radius: 50%;
+    display: block; pointer-events: none;
+}
+@keyframes zima-bubble-float {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-6px); }
+}
+@keyframes zima-bubble-ring {
+    0%   { box-shadow: 0 4px 16px rgba(0,0,0,.25), 0 0 0 0 rgba(0,123,255,.55); }
+    70%  { box-shadow: 0 4px 16px rgba(0,0,0,.25), 0 0 0 14px rgba(0,123,255,0); }
+    100% { box-shadow: 0 4px 16px rgba(0,0,0,.25), 0 0 0 0 rgba(0,123,255,0); }
+}
+@media (prefers-reduced-motion: reduce) {
+    #zima-chatbot-bubble { animation: none; }
+}
+@media (max-width: 576px) {
+    #zima-chatbot-bubble { width: 50px; height: 50px; bottom: 16px; right: 16px; }
+}
 #zima-chatbot-bubble .zima-badge {
     position: absolute; top: -4px; right: -4px;
     background: #dc3545; border-radius: 50%;
@@ -42,7 +63,7 @@ $isAdmin  = in_array($userRole, ['admin','superadmin','super admin'], true);
 #zima-chat-header .zima-avatar {
     width: 36px; height: 36px; background: rgba(255,255,255,.2);
     border-radius: 50%; display: flex; align-items: center;
-    justify-content: center; font-size: 18px;
+    justify-content: center; font-size: 18px; overflow: hidden;
 }
 #zima-chat-header .zima-title { flex: 1; }
 #zima-chat-header .zima-title strong { display: block; font-size: 14px; }
@@ -146,13 +167,13 @@ $isAdmin  = in_array($userRole, ['admin','superadmin','super admin'], true);
 </style>
 
 <button id="zima-chatbot-bubble" title="Chat with SACCOS Assistant" onclick="zimaChatToggle()">
-    <i class="fas fa-robot"></i>
+    <img src="./media/icons/chatbot1.jpg" alt="Chatbot">
     <span class="zima-badge" id="zima-unread-badge"></span>
 </button>
 
 <div id="zima-chatbot-panel">
     <div id="zima-chat-header">
-        <div class="zima-avatar"><i class="fas fa-robot"></i></div>
+        <div class="zima-avatar"><img src="./media/icons/chatbot1.jpg" alt="Chatbot" style="width:100%;height:100%;object-fit:cover;border-radius:50%;"></div>
         <div class="zima-title">
             <strong>SACCOS Assistant</strong>
             <small>Hello, <?= $userName ?>! Ask me anything.</small>
