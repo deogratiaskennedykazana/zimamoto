@@ -159,6 +159,9 @@
 
   <!-- Main Sidebar Container -->
   <aside class="main-sidebar sidebar-dark-primary elevation-4">
+    <!-- Close button (mobile drawer only) -->
+    <button type="button" class="zima-sidebar-close" data-widget="pushmenu" aria-label="Close menu">&times;</button>
+
     <!-- Brand Logo -->
     <a href="index3.html" class="brand-link">
       <!-- <img src="dist/img/AdminLTELogo.png" alt="AdminLTE Logo" class="brand-image img-circle elevation-3" style="opacity: .8"> -->
@@ -177,11 +180,27 @@
         </div>
       </div>
 
+      <!-- Quick menu search: lets admin jump straight to any item
+           (e.g. type "chatbot") instead of scrolling the whole menu -->
+      <div class="form-inline">
+        <div class="input-group" data-widget="sidebar-search">
+          <input class="form-control form-control-sidebar" type="search" placeholder="Search menu" aria-label="Search menu">
+          <div class="input-group-append">
+            <button class="btn btn-sidebar">
+              <i class="fas fa-search fa-fw"></i>
+            </button>
+          </div>
+        </div>
+      </div>
 
      <?php
             include("./sidebar.php");
      ?>
   </aside>
+  <!-- Dimmed backdrop shown behind the mobile drawer; AdminLTE already
+       toggles body.sidebar-open when the off-canvas sidebar is shown,
+       so this just gives it a visible, tappable overlay -->
+  <div id="zima-sidebar-backdrop"></div>
 
   <!-- Content Wrapper. Contains page content -->
   <div class="content-wrapper">
@@ -1731,6 +1750,44 @@ $(document).ready(function(){
         searchText:'Search here',
         searchPlaceHolder:'Input Value'
     });
+});
+
+// ── MOBILE SIDEBAR UX ────────────────────────────────────────
+// Tapping the dimmed backdrop or the ✕ button closes the mobile
+// drawer (AdminLTE already toggles body.sidebar-open for us).
+// Tapping an actual menu link (not a treeview/submenu toggle)
+// auto-closes the drawer right away so the next screen isn't
+// hidden behind it - no more hunting through a stuck-open menu.
+$(document).ready(function () {
+  function isMobileSidebar() {
+    return $(window).width() < 992;
+  }
+
+  $(document).on('click', '#zima-sidebar-backdrop, .zima-sidebar-close', function (e) {
+    e.preventDefault();
+    $('[data-widget="pushmenu"]').PushMenu('collapse');
+  });
+
+  $('.main-sidebar .nav-sidebar').on('click', 'a.nav-link', function () {
+    if (!isMobileSidebar()) return;
+
+    var $link = $(this);
+    var href = $link.attr('href');
+    var opensSubmenu = $link.next('.nav-treeview').length > 0;
+
+    // Real navigation links (not "#" submenu togglers) should close
+    // the drawer immediately for a snappier feel before the page loads.
+    if (!opensSubmenu && href && href !== '#') {
+      $('[data-widget="pushmenu"]').PushMenu('collapse');
+    }
+  });
+
+  // Pressing Escape also closes the mobile drawer.
+  $(document).on('keydown', function (e) {
+    if (e.key === 'Escape' && $('body').hasClass('sidebar-open')) {
+      $('[data-widget="pushmenu"]').PushMenu('collapse');
+    }
+  });
 });
 
 </script>

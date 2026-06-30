@@ -29,3 +29,79 @@
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
+
+/* ============================================================
+   RESPONSIVE / MOBILE-FRIENDLY SIDEBAR
+   ------------------------------------------------------------
+   Goals:
+   1. The sidebar nav must ALWAYS be fully scrollable to its last
+      item (e.g. admin-only "Chatbot Settings") regardless of
+      viewport height or mobile browser chrome (address bar, etc).
+   2. On phones/tablets it behaves like a proper app drawer: a
+      dimmed backdrop behind it, tap-outside-to-close, bigger tap
+      targets, and it auto-closes after the user taps a real link
+      (handled in index.php's inline script).
+   ============================================================ */
+
+/* Make the inner scrollable nav region resilient on every screen,
+   not just relying on the OverlayScrollbars JS plugin to size it. */
+.main-sidebar .sidebar {
+  height: calc(100vh - 4.6rem) !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 100px; /* keeps last item clear of mobile browser chrome */
+}
+.main-sidebar .sidebar::-webkit-scrollbar { width: 6px; }
+.main-sidebar .sidebar::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,.25); border-radius: 6px;
+}
+.main-sidebar .sidebar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,.45);
+}
+
+/* Close (✕) button shown only inside the mobile drawer header */
+.zima-sidebar-close {
+  display: none;
+  position: absolute; top: 10px; right: 10px;
+  width: 32px; height: 32px; border-radius: 50%;
+  background: rgba(255,255,255,.12); color: #fff; border: none;
+  font-size: 18px; line-height: 1; cursor: pointer; z-index: 5;
+}
+.zima-sidebar-close:hover { background: rgba(255,255,255,.25); }
+
+/* Dimmed backdrop behind the open mobile drawer (toggled by JS via
+   body.sidebar-open, which is the same class AdminLTE's PushMenu
+   widget already adds when the off-canvas sidebar is shown) */
+#zima-sidebar-backdrop {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.5);
+  z-index: 1037; /* just below AdminLTE's .main-sidebar (1038) */
+  opacity: 0; transition: opacity .2s ease;
+}
+
+@media (max-width: 991.98px) {
+  .main-sidebar { width: 270px !important; max-width: 86vw; }
+  .main-sidebar .sidebar { height: calc(100vh - 4.6rem) !important; }
+
+  /* Bigger, easier-to-tap rows for touch screens */
+  .nav-sidebar .nav-link { padding: .65rem .75rem; font-size: .95rem; }
+  .nav-sidebar .nav-treeview .nav-link { padding-top: .55rem; padding-bottom: .55rem; }
+  .nav-sidebar .nav-header { font-size: .78rem; padding-top: .75rem; }
+
+  .zima-sidebar-close { display: flex; align-items: center; justify-content: center; }
+
+  body.sidebar-open #zima-sidebar-backdrop { display: block; opacity: 1; }
+
+  /* Quick menu search box sits just under the brand/close button,
+     so it stays reachable without scrolling on small screens. */
+  .main-sidebar .form-inline { padding: 0 .8rem .5rem; }
+  .main-sidebar .form-control-sidebar { font-size: .9rem; }
+}
+
+/* Quick menu search results list - keep it readable and scrollable
+   instead of pushing the whole drawer height around. */
+.main-sidebar .sidebar-search-results {
+  max-height: 60vh;
+  overflow-y: auto;
+}
