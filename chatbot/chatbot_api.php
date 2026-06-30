@@ -129,7 +129,21 @@ if(!chatbotGetWizard()){
     $adminRoles=['admin','superadmin','super admin'];
     $financeRoles=array_merge($adminRoles,['accountant']);
 
-    // Loan application wizard
+    // Loan-for-member wizard (staff applying on behalf of a member) — must be checked
+    // BEFORE the self-service loan wizard below, since both share the word "loan"/"apply".
+    // Triggers on phrases like "apply loan for [member]", "apply on behalf of", "loan kwa niaba ya".
+    if(in_array($userRole,$financeRoles,true)&&
+       preg_match('/\b(apply|omba|tuma maombi|niomba)\b.*\b(for|on behalf|kwa niaba|niaba ya)\b/i',$userMessage)
+        ||(in_array($userRole,$financeRoles,true)&&preg_match('/\b(loan for member|apply loan for|loan application for member|create loan for|mkopo kwa niaba|mkopo wa mwanachama)\b/i',$userMessage))){
+        $wizardReply=chatbotStartLoanForMemberWizard($conn,$userId,$userRole,$branchId);
+        $_SESSION['chatbot_history'][]=['role'=>'user','text'=>$userMessage];
+        $_SESSION['chatbot_history'][]=['role'=>'model','text'=>$wizardReply];
+        $_SESSION['chatbot_history']=array_slice($_SESSION['chatbot_history'],-20);
+        chatbotLogAudit($conn,$userId,$userRole,$userMessage,'wizard_start','loan_application_for_member');
+        ob_end_clean();echo json_encode(['reply'=>$wizardReply],JSON_UNESCAPED_UNICODE);exit;
+    }
+
+    // Loan application wizard (self-service — member applying for themselves)
     if(preg_match('/\b(apply|omba|tuma maombi|niomba|apply loan|loan application|niomba mkopo)\b/i',$userMessage)
         &&!preg_match('/\b(list|show|display|view|maombi ya)\b/i',$userMessage)){
         $wizardReply=chatbotStartLoanWizard($conn,$userId,$userRole,$branchId);

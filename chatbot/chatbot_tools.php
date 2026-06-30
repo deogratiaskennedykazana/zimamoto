@@ -1606,7 +1606,14 @@ function chatbotHandleWizard(string $userMessage, mysqli $conn, int $userId,
             if(!filter_var($value,FILTER_VALIDATE_EMAIL)){$error="Please enter a valid email address.";break;}break;
         case 'select':
             $opts=$field['options']??[];$matched=chatbotFuzzyMatch($value,$opts);
-            if(!$matched){$error="Please choose one of: ".implode(', ',$opts).".";break;}$value=$matched;break;
+            if(!$matched){$error="Please choose one of: ".implode(', ',$opts).".";break;}$value=$matched;
+            // Conditionally splice extra follow-up fields into the wizard based on the chosen
+            // option (e.g. repayment_mode=salary → ask for basic salary / take-home pay).
+            if(!empty($field['inject_on'][$value])){
+                array_splice($wizard['fields'],$wizard['step']+1,0,$field['inject_on'][$value]);
+                $fields=$wizard['fields'];
+            }
+            break;
         case 'integer':
             if(!is_numeric($value)||(int)$value<=0){$error="Please enter a valid positive number.";break;}$value=(string)(int)$value;break;
         case 'skip_ok':
@@ -1614,27 +1621,18 @@ function chatbotHandleWizard(string $userMessage, mysqli $conn, int $userId,
         case 'password':
             if(strlen($value)<8){$error="Password must be at least 8 characters.";break;}break;
 
-        // ── Smart member search: resolves name/reg/phone → stores member_id in data, shows details ──
+        // ── Smart member search: resolves name/reg/phone → stores member_id (or user_id, for
+        //    guarantor selection) under a configurable key, shows details.
+        //    Supports: data_key (default 'member_id'), store ('member_id'|'user_id'),
+        //    optional (allow 'skip' — used for a 2nd guarantor not required by every product),
+        //    exclude_user_id (literal) / exclude_user_key (dynamic, e.g. the applicant) ──
         case 'member_search':
-            $like='%'.trim($value).'%';
-            $mStmt=$conn->prepare(
-                "SELECT m.id,u.name,m.reg_no,m.phone,m.status FROM members m "
-               ."JOIN users u ON u.id=m.user_id "
-               ."WHERE (u.name LIKE ? OR m.reg_no LIKE ? OR m.phone LIKE ?) "
-               ."AND m.deleted_at IS NULL LIMIT 5"
-            );
-            $mResults=[];
-            if($mStmt){$mStmt->bind_param('sss',$like,$like,$like);$mStmt->execute();$mResults=stmt_fetch_all($mStmt);$mStmt->close();}
-            if(empty($mResults)){
-                // Show re-prompt with hint so admin knows what to type
-                $hint=$field['hint']??'Type a name, reg number, or phone.';
-                return ['handled'=>true,'reply'=>"⚠️ No member found matching **'{$value}'**.\nTry a different name, reg number, or phone.\n\n💡 {$hint}"];
-            }
-            if(count($mResults)===1){
-                $found=$mResults[0];
-                $statusIcon=['approved'=>'✅','pending'=>'⏳','rejected'=>'❌'][$found['status']]??'•';
-                $wizard['data']['member_id']=(string)$found['id'];
-                $wizard['data']['_member_display']="{$statusIcon} {$found['name']} | Reg:{$found['reg_no']} | Phone:{$found['phone']}";
+            $dataKey=$field['data_key']??'member_id';
+            $storeAs=$field['store']??'member_id';
+            if(!empty($field['optional'])&&in_array(strtolower($value),['skip','none','no','n/a','-'],true)){
+                $wizard['data'][$dataKey]='';
+                $wizard['data'][$dataKey.'_user_id']='';
+                $wizard['data']['_'.$dataKey.'_display']='— (not provided)';
                 $wizard['step']++;
                 if($wizard['step']>=count($fields)){
                     $wizard['awaiting_confirm']=true;chatbotSetWizard($wizard);
@@ -1643,15 +1641,52 @@ function chatbotHandleWizard(string $userMessage, mysqli $conn, int $userId,
                 chatbotSetWizard($wizard);
                 $next=$fields[$wizard['step']];
                 $progress="Step ".($wizard['step']+1)."/".count($fields);
-                return ['handled'=>true,'reply'=>"✅ Member: **{$found['name']}** (Reg:{$found['reg_no']})\n\n[{$progress}] {$next['prompt']}".(!empty($next['hint'])?"\n💡 {$next['hint']}":'')];
+                return ['handled'=>true,'reply'=>"✅ Skipped.\n\n[{$progress}] {$next['prompt']}".(!empty($next['hint'])?"\n💡 {$next['hint']}":'')];
             }
-            // Multiple matches — list them and keep wizard on same step so admin retries
+            $like='%'.trim($value).'%';
+            $mStmt=$conn->prepare(
+                "SELECT m.id,u.id AS user_id,m.branch_id,u.name,m.reg_no,m.phone,m.status FROM members m "
+               ."JOIN users u ON u.id=m.user_id "
+               ."WHERE (u.name LIKE ? OR m.reg_no LIKE ? OR m.phone LIKE ?) "
+               ."AND m.deleted_at IS NULL LIMIT 6"
+            );
+            $mResults=[];
+            if($mStmt){$mStmt->bind_param('sss',$like,$like,$like);$mStmt->execute();$mResults=stmt_fetch_all($mStmt);$mStmt->close();}
+            $excludeUid=0;
+            if(!empty($field['exclude_user_key'])) $excludeUid=(int)($wizard['data'][$field['exclude_user_key']]??0);
+            elseif(!empty($field['exclude_user_id'])) $excludeUid=(int)$field['exclude_user_id'];
+            if($excludeUid>0) $mResults=array_values(array_filter($mResults,fn($r)=>(int)$r['user_id']!==$excludeUid));
+            if(empty($mResults)){
+                // Show re-prompt with hint so the user knows what to type
+                $hint=$field['hint']??'Type a name, reg number, or phone.';
+                $skipNote=!empty($field['optional'])?"\nOr type **skip** if not needed.":'';
+                return ['handled'=>true,'reply'=>"⚠️ No member found matching **'{$value}'**.\nTry a different name, reg number, or phone.{$skipNote}\n\n💡 {$hint}"];
+            }
+            if(count($mResults)===1){
+                $found=$mResults[0];
+                $statusIcon=['approved'=>'✅','pending'=>'⏳','rejected'=>'❌'][$found['status']]??'•';
+                $wizard['data'][$dataKey]=$storeAs==='user_id'?(string)$found['user_id']:(string)$found['id'];
+                $wizard['data'][$dataKey.'_user_id']=(string)$found['user_id'];
+                $wizard['data'][$dataKey.'_branch_id']=(string)($found['branch_id']??0);
+                $wizard['data']['_'.$dataKey.'_display']="{$statusIcon} {$found['name']} | Reg:{$found['reg_no']} | Phone:{$found['phone']}";
+                $wizard['step']++;
+                if($wizard['step']>=count($fields)){
+                    $wizard['awaiting_confirm']=true;chatbotSetWizard($wizard);
+                    return chatbotWizardSummary($wizard);
+                }
+                chatbotSetWizard($wizard);
+                $next=$fields[$wizard['step']];
+                $progress="Step ".($wizard['step']+1)."/".count($fields);
+                return ['handled'=>true,'reply'=>"✅ {$field['label']}: **{$found['name']}** (Reg:{$found['reg_no']})\n\n[{$progress}] {$next['prompt']}".(!empty($next['hint'])?"\n💡 {$next['hint']}":'')];
+            }
+            // Multiple matches — list them and keep wizard on same step so the user retries
             $matchLines=["Found ".count($mResults)." members. Please be more specific (type full name or reg number):"];
             foreach($mResults as $r){
                 $icon=['approved'=>'✅','pending'=>'⏳','rejected'=>'❌'][$r['status']]??'•';
                 $matchLines[]="  {$icon} {$r['name']} | Reg:{$r['reg_no']} | Phone:{$r['phone']}";
             }
-            // Do NOT advance step — let admin retry
+            if(!empty($field['optional'])) $matchLines[]="Or type **skip** if not needed.";
+            // Do NOT advance step — let the user retry
             return ['handled'=>true,'reply'=>implode("\n",$matchLines)];
 
         // ── Smart branch search: resolves branch name → stores branch_id ──
@@ -1725,9 +1760,10 @@ function chatbotWizardSummary(array $wizard): array
     $fields=$wizard['fields'];$data=$wizard['data'];
     $lines=["📋 **Please review before submitting:**\n"];
     foreach($fields as $f){
-        // member_search key is 'member_search' but the resolved value is stored under 'member_id'
-        if($f['key']==='member_search'){
-            $val=$data['_member_display']??($data['member_id']?'ID:'.$data['member_id']:'—');
+        // member_search fields resolve to a configurable data_key (default 'member_id')
+        if(($f['type']??'')==='member_search'){
+            $dataKey=$f['data_key']??'member_id';
+            $val=$data['_'.$dataKey.'_display']??($data[$dataKey]?'ID:'.$data[$dataKey]:'— (not provided)');
             $lines[]="• {$f['label']}: **{$val}**";
             continue;
         }
@@ -1753,20 +1789,105 @@ function chatbotWizardSummary(array $wizard): array
     return ['handled'=>true,'reply'=>implode("\n",$lines)];
 }
 
+// Shared loan-submission logic used by BOTH the self-service wizard (member applies for
+// themselves) and the staff "apply on behalf of a member" wizard. Mirrors controllers/
+// loan_controller.php's apply_loan branch exactly: re-validates against the chosen product's
+// min/max amount & period and required guarantor count, inserts the loan, saves repayment-mode
+// details (salary or standing order), inserts guarantors, and notifies everyone involved.
+// File attachments (salary slip / standing order doc) aren't supported over chat — flagged in
+// the confirmation message instead, same as the form-level requirement they replace.
+function chatbotSubmitLoanApplication(mysqli $conn, int $applicantUserId, int $applicantBranchId,
+                                      array $data, int $actingUserId, bool $onBehalf=false): array
+{
+    $amount=(float)($data['amount']??0);
+    $period=(int)($data['period']??0);
+    $loanTypeId=(int)($data['loan_type_id']??0);
+    $repMode=in_array($data['repayment_mode']??'salary',['salary','standing_order'],true)?$data['repayment_mode']:'salary';
+
+    if($applicantUserId<=0) return ['ok'=>false,'message'=>'No applicant resolved.'];
+    if($amount<=0) return ['ok'=>false,'message'=>'Invalid loan amount.'];
+    if($period<=0) return ['ok'=>false,'message'=>'Invalid repayment period.'];
+    if($loanTypeId<=0||!function_exists('selectLoanTypeById')) return ['ok'=>false,'message'=>'Please choose a valid loan product.'];
+
+    $product=selectLoanTypeById($conn,$loanTypeId);
+    if(!$product) return ['ok'=>false,'message'=>'Selected loan product is invalid or no longer available.'];
+
+    // ── Re-validate against the product's own rules — identical checks to the web form ──
+    $minAmt=(float)$product['min_amount'];$maxAmt=(float)$product['max_amount'];
+    if($amount<$minAmt||($maxAmt>0&&$amount>$maxAmt)){
+        $rangeText='TZS '.number_format($minAmt,2).($maxAmt>0?' - TZS '.number_format($maxAmt,2):' and above');
+        return ['ok'=>false,'message'=>"The {$product['name']} allows amounts between {$rangeText}. Please restart and adjust the requested amount."];
+    }
+    $minPeriod=(int)$product['min_period'];$maxPeriod=(int)$product['max_period'];
+    if($period<$minPeriod||$period>$maxPeriod){
+        return ['ok'=>false,'message'=>"The {$product['name']} allows a repayment period of {$minPeriod}-{$maxPeriod} months. Please restart and adjust the period."];
+    }
+    $grantorUserIds=array_values(array_unique(array_filter([
+        (int)($data['grantor1_user_id']??0),
+        (int)($data['grantor2_user_id']??0),
+    ])));
+    $requiredGrantors=(int)$product['required_grantors'];
+    if(count($grantorUserIds)<$requiredGrantors){
+        return ['ok'=>false,'message'=>"The {$product['name']} requires at least {$requiredGrantors} guarantor(s). Please restart and provide them."];
+    }
+
+    if(!function_exists('insertLoan')) return ['ok'=>false,'message'=>'Loan function not available.'];
+    $newLoanId=insertLoan($conn,$applicantBranchId,$applicantUserId,$amount,0.0,0.0,$period,'pending',$repMode,null,$loanTypeId);
+    if(!is_numeric($newLoanId)||$newLoanId<=0) return ['ok'=>false,'message'=>'Failed to submit the loan.'];
+
+    if($repMode==='salary'&&function_exists('insertLoanSalaryDetails')){
+        $basicSalary=(float)($data['basic_salary']??0);
+        $takeHome=(float)($data['take_home']??0);
+        insertLoanSalaryDetails($conn,$newLoanId,$basicSalary,$takeHome,null);
+    }
+    if($repMode==='standing_order'&&function_exists('insertLoanStandingOrderDetails')){
+        insertLoanStandingOrderDetails($conn,$newLoanId,null);
+    }
+
+    $grantorNames=[];
+    foreach($grantorUserIds as $gUid){
+        if(function_exists('insertLoanGrantor')){
+            $newGrantorId=insertLoanGrantor($conn,$applicantUserId,$newLoanId,$gUid,null);
+            if(is_numeric($newGrantorId)&&$newGrantorId>0){
+                if(function_exists('sendGrantorRequest')) try{sendGrantorRequest($conn,$newLoanId,$gUid,$applicantUserId);}catch(Throwable $e){}
+                if(function_exists('selectUserById')){$gu=selectUserById($conn,$gUid);if($gu) $grantorNames[]=$gu['name'];}
+            }
+        }
+    }
+
+    if(function_exists('createSystemNotification')){
+        try{createSystemNotification($conn,$applicantUserId,'Loan Application Submitted','Your application of TZS '.number_format($amount).' is under review.','info','./?page=my_loan');}catch(Throwable $e){}
+    }
+    if(function_exists('logAudit')){
+        $note=$onBehalf?'[Chatbot] Submitted loan on behalf of member':'[Chatbot Wizard] Loan application';
+        logAudit($conn,$actingUserId,'create','loans',$newLoanId,$note,[],['amount'=>$amount,'period'=>$period,'product'=>$product['name']]);
+    }
+
+    $msg="✅ Loan application **#{$newLoanId}** submitted!\n";
+    $msg.="Product: {$product['name']} | Amount: TZS ".number_format($amount)." | Period: {$period} months | Mode: {$repMode}\n";
+    if($grantorNames) $msg.="Guarantors notified: ".implode(', ',$grantorNames)."\n";
+    if($repMode==='standing_order') $msg.="📎 Note: the standing order document still needs to be uploaded via the loan page — chat can't attach files.\n";
+    if($repMode==='salary') $msg.="📎 Note: the salary slip can be uploaded via the loan page when convenient — chat can't attach files.\n";
+    $msg.="The application is now pending review.";
+    return ['ok'=>true,'message'=>$msg];
+}
+
 function chatbotExecuteWizard(array $wizard, mysqli $conn, int $userId,
                               string $userRole, int $branchId): array
 {
     chatbotClearWizard();$data=$wizard['data'];$type=$wizard['type'];
 
     if($type==='loan_application'){
-        $amount=(float)($data['amount']??0);$period=(int)($data['period']??0);
-        $loanTypeId=(int)($data['loan_type_id']??0);$repMode=$data['repayment_mode']??'salary';
-        if(!function_exists('insertLoan')) return ['handled'=>true,'reply'=>"❌ Loan function not available."];
-        $newLoanId=insertLoan($conn,$branchId,$userId,$amount,0.0,0.0,$period,'pending',$repMode,null,$loanTypeId>0?$loanTypeId:null);
-        if(!is_numeric($newLoanId)||$newLoanId<=0) return ['handled'=>true,'reply'=>"❌ Failed to submit loan. Please try via the web form."];
-        if(function_exists('createSystemNotification')) try{createSystemNotification($conn,$userId,'Loan Application Submitted','Your application of TZS '.number_format($amount).' is under review.','info','./?page=my_loan');}catch(Throwable $e){}
-        if(function_exists('logAudit')) logAudit($conn,$userId,'create','loans',$newLoanId,"[Chatbot Wizard] Loan",[],['amount'=>$amount,'period'=>$period]);
-        return ['handled'=>true,'reply'=>"✅ Loan application **#{$newLoanId}** submitted!\nAmount: TZS ".number_format($amount)." | Period: {$period} months\nYou will be notified when reviewed."];
+        $result=chatbotSubmitLoanApplication($conn,$userId,$branchId,$data,$userId,false);
+        return ['handled'=>true,'reply'=>$result['ok']?$result['message']:"❌ ".$result['message']];
+    }
+
+    if($type==='loan_application_for_member'){
+        $applicantUserId=(int)($data['member_id_user_id']??0);
+        $applicantBranchId=(int)($data['member_id_branch_id']??$branchId);
+        if($applicantUserId<=0) return ['handled'=>true,'reply'=>"❌ No member resolved. Please restart the wizard."];
+        $result=chatbotSubmitLoanApplication($conn,$applicantUserId,$applicantBranchId,$data,$userId,true);
+        return ['handled'=>true,'reply'=>$result['ok']?$result['message']:"❌ ".$result['message']];
     }
 
     if($type==='deposit_savings'){
@@ -1820,29 +1941,93 @@ function chatbotExecuteWizard(array $wizard, mysqli $conn, int $userId,
 
 function chatbotStartLoanWizard(mysqli $conn, int $userId, string $userRole, int $branchId): string
 {
-    // Pre-load products with names so user picks by name not ID
+    // Pre-load products with full details for validation hints
     $products=selectLoanTypes($conn);
-    $productNames=[];$productHint='Type the product name.';
+    $productNames=[];$productData=[];$productHint='Type the product name.';
     if(is_array($products)&&count($products)>0){
-        $productHint="Available loan products (type the name):\n";
+        $productHint="📋 Available loan products:\n";
+        $productHint.=str_repeat('─',50)."\n";
         foreach($products as $prod){
             if(($prod['status']??'active')==='active'){
                 $productNames[$prod['id']]=$prod['name'];
-                $productHint.="  • {$prod['name']} | Rate:{$prod['interest_rate']}% | TZS ".number_format((float)$prod['min_amount'])."-".number_format((float)$prod['max_amount'])." | {$prod['min_period']}-{$prod['max_period']} months\n";
+                $productData[$prod['id']]=$prod;
+                $maxTxt=(float)$prod['max_amount']>0?'TZS '.number_format((float)$prod['max_amount']):'(savings-based)';
+                $productHint.="📌 {$prod['name']}\n";
+                $productHint.="   Rate: {$prod['interest_rate']}% | Amount: TZS ".number_format((float)$prod['min_amount'])." – {$maxTxt}\n";
+                $productHint.="   Period: {$prod['min_period']}–{$prod['max_period']} months | Guarantors: {$prod['required_grantors']}\n";
             }
         }
         $productHint=rtrim($productHint);
     }
     $fields=[
-        ['key'=>'amount',         'label'=>'Loan Amount',      'type'=>'amount',         'prompt'=>'How much do you want to borrow? (e.g. 500000 or 500k or 0.5m)','hint'=>'Enter the amount in TZS'],
-        ['key'=>'period',         'label'=>'Repayment Period', 'type'=>'integer',        'prompt'=>'How many months to repay?','hint'=>'E.g. 12 for one year'],
-        ['key'=>'loan_type_id',   'label'=>'Loan Product',     'type'=>'product_search', 'prompt'=>'Which loan product?','hint'=>$productHint,'product_names'=>$productNames],
-        ['key'=>'repayment_mode', 'label'=>'Repayment Mode',   'type'=>'select',         'prompt'=>'Repayment mode?','options'=>['salary','standing_order']],
+        ['key'=>'loan_type_id',   'label'=>'Loan Product',     'type'=>'product_search', 'prompt'=>'Which loan product do you want to apply for?','hint'=>$productHint,'product_names'=>$productNames,'product_data'=>$productData],
+        ['key'=>'amount',         'label'=>'Desired Amount',   'type'=>'amount',         'prompt'=>'How much do you want to borrow?','hint'=>'Enter amount in TZS (e.g. 500000, 500k, 1.5m)'],
+        ['key'=>'purpose',        'label'=>'Loan Purpose',     'type'=>'text',           'prompt'=>'What is the purpose of this loan?','hint'=>'E.g. Business capital, home improvement, education'],
+        ['key'=>'repayment_mode', 'label'=>'Repayment Mode',   'type'=>'select',         'prompt'=>'How will you repay? Choose: salary or standing_order','options'=>['salary','standing_order'],'hint'=>'salary = deducted from salary slip | standing_order = bank standing order',
+            'inject_on'=>['salary'=>[
+                ['key'=>'basic_salary','label'=>'Basic Salary',    'type'=>'amount','prompt'=>'What is your monthly basic salary (TZS)?','hint'=>'Gross salary before deductions'],
+                ['key'=>'take_home',   'label'=>'Take Home Pay',   'type'=>'amount','prompt'=>'What is your take-home pay after all deductions (TZS)?','hint'=>'Must be at least 1/3 of basic salary — shown on your salary slip'],
+            ]],
+        ],
+        ['key'=>'period',         'label'=>'Repayment Period', 'type'=>'integer',        'prompt'=>'How many months do you want to repay over?','hint'=>'Refer to the product range shown above'],
+        ['key'=>'grantor1_search','label'=>'First Guarantor',  'type'=>'member_search',  'prompt'=>'Who is your first guarantor? (type their name, reg number, or phone)','data_key'=>'grantor1','store'=>'user_id','exclude_user_id'=>$userId,'hint'=>'The guarantor must be an active member of this SACCOS'],
+        ['key'=>'grantor2_search','label'=>'Second Guarantor', 'type'=>'member_search',  'prompt'=>"Who is your second guarantor? (name/reg/phone — or type 'skip' if the product only needs one)",'data_key'=>'grantor2','store'=>'user_id','exclude_user_id'=>$userId,'optional'=>true,'hint'=>"Type 'skip' if only one guarantor is required"],
     ];
     $wizard=['type'=>'loan_application','step'=>0,'fields'=>$fields,'data'=>['user_id'=>$userId,'branch_id'=>$branchId]];
     chatbotSetWizard($wizard);
     $first=$fields[0];
-    return "🧙 **Loan Application Wizard** — I'll guide you step by step.\nType **cancel** at any time to stop.\n\n[Step 1/".count($fields)."] {$first['prompt']}\n💡 {$first['hint']}";
+    return "🧙 **Loan Application Wizard**\nI'll guide you through every field — exactly like the loan application form.\nType **cancel** at any time to stop.\n\n[Step 1/".count($fields)."] {$first['prompt']}\n\n{$first['hint']}";
+}
+
+function chatbotStartLoanForMemberWizard(mysqli $conn, int $userId, string $userRole, int $branchId): string
+{
+    // Pre-fetch recent members so staff can search by name instead of typing an unknown ID
+    $adminRoles=['admin','superadmin','super admin'];
+    $isAdmin=in_array($userRole,$adminRoles,true);
+    $bWhere=(!$isAdmin&&$branchId>0)?"AND m.branch_id={$branchId}":'';
+    $recentRows=$conn->query("SELECT m.id,u.name,m.reg_no,m.phone FROM members m JOIN users u ON u.id=m.user_id WHERE m.deleted_at IS NULL AND m.status='approved' {$bWhere} ORDER BY u.name ASC LIMIT 10");
+    $memberHint='Type a name, reg number, or phone to search.';
+    if($recentRows&&$recentRows->num_rows>0){
+        $memberHint="Search by name, reg number, or phone. Recent members:\n".str_repeat('─',40)."\n";
+        while($r=$recentRows->fetch_assoc()) $memberHint.="  • {$r['name']} | Reg:{$r['reg_no']} | Phone:{$r['phone']}\n";
+        $memberHint=rtrim($memberHint);
+    }
+    // Pre-load products with full details
+    $products=selectLoanTypes($conn);
+    $productNames=[];$productData=[];$productHint='Type the product name.';
+    if(is_array($products)&&count($products)>0){
+        $productHint="📋 Available loan products:\n".str_repeat('─',50)."\n";
+        foreach($products as $prod){
+            if(($prod['status']??'active')==='active'){
+                $productNames[$prod['id']]=$prod['name'];
+                $productData[$prod['id']]=$prod;
+                $maxTxt=(float)$prod['max_amount']>0?'TZS '.number_format((float)$prod['max_amount']):'(savings-based)';
+                $productHint.="📌 {$prod['name']}\n";
+                $productHint.="   Rate: {$prod['interest_rate']}% | Amount: TZS ".number_format((float)$prod['min_amount'])." – {$maxTxt}\n";
+                $productHint.="   Period: {$prod['min_period']}–{$prod['max_period']} months | Guarantors: {$prod['required_grantors']}\n";
+            }
+        }
+        $productHint=rtrim($productHint);
+    }
+    $fields=[
+        ['key'=>'member_search',  'label'=>'Member (Applicant)','type'=>'member_search', 'prompt'=>'Who is this loan for? (name, reg number, or phone)','hint'=>$memberHint,'data_key'=>'member_id','store'=>'user_id'],
+        ['key'=>'loan_type_id',   'label'=>'Loan Product',      'type'=>'product_search','prompt'=>'Which loan product?','hint'=>$productHint,'product_names'=>$productNames,'product_data'=>$productData],
+        ['key'=>'amount',         'label'=>'Desired Amount',    'type'=>'amount',        'prompt'=>'What is the desired loan amount?','hint'=>'Enter amount in TZS (e.g. 1000000, 1m, 500k)'],
+        ['key'=>'purpose',        'label'=>'Loan Purpose',      'type'=>'text',          'prompt'=>'What is the purpose of this loan?','hint'=>'E.g. Business capital, medical expenses, education'],
+        ['key'=>'repayment_mode', 'label'=>'Repayment Mode',    'type'=>'select',        'prompt'=>'Repayment mode? (salary or standing_order)','options'=>['salary','standing_order'],'hint'=>'salary = payroll deduction | standing_order = bank instruction',
+            'inject_on'=>['salary'=>[
+                ['key'=>'basic_salary','label'=>'Basic Salary',   'type'=>'amount','prompt'=>"Member's monthly basic salary (TZS)?",'hint'=>'Gross salary before deductions'],
+                ['key'=>'take_home',   'label'=>'Take Home Pay',  'type'=>'amount','prompt'=>"Member's take-home pay after all deductions (TZS)?",'hint'=>'Must be at least 1/3 of basic salary'],
+            ]],
+        ],
+        ['key'=>'period',         'label'=>'Repayment Period',  'type'=>'integer',       'prompt'=>'How many months to repay?','hint'=>'Must be within the product\'s allowed period range'],
+        ['key'=>'grantor1_search','label'=>'First Guarantor',   'type'=>'member_search', 'prompt'=>'Who is the first guarantor? (name, reg number, or phone)','data_key'=>'grantor1','store'=>'user_id','exclude_user_key'=>'member_id_user_id','hint'=>'Guarantor must be an active SACCOS member (cannot be the applicant)'],
+        ['key'=>'grantor2_search','label'=>'Second Guarantor',  'type'=>'member_search', 'prompt'=>"Who is the second guarantor? (name/reg/phone — or type 'skip' if product needs only one)",'data_key'=>'grantor2','store'=>'user_id','exclude_user_key'=>'member_id_user_id','optional'=>true,'hint'=>"Type 'skip' if only one guarantor is required by the product"],
+    ];
+    $wizard=['type'=>'loan_application_for_member','step'=>0,'fields'=>$fields,'data'=>[]];
+    chatbotSetWizard($wizard);
+    $first=$fields[0];
+    return "🧙 **Loan Application Wizard (Staff: Apply on behalf of a member)**\nThis covers all fields from the staff loan application form, step by step.\nType **cancel** at any time to stop.\n\n[Step 1/".count($fields)."] {$first['prompt']}\n\n{$first['hint']}";
 }
 
 function chatbotStartDepositWizard(mysqli $conn, int $userId, string $userRole, int $branchId): string
