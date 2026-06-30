@@ -586,6 +586,123 @@ if(isset($_POST['upload_general_loan_repayment'])){
             }
             echo "<script>alert('SUCCESS'); window.location.href='../?page=branch_pending_loan&branch_id=$branchId'</script>";
         }
+        // ================================================================
+        //  LOAN COLLECTION — collect repayment against selected schedule
+        //  installments for a member's approved loan. Adapted from the
+        //  Kuringe "individual_loan_collection" bulk-payment flow, but
+        //  records the ledger entry as a min_transaction (dr = account
+        //  received into, cr = the member's loan min_sub account) and
+        //  updates loan_schedules.paid_amount/status directly, since
+        //  zimamoto has no separate loan_schedule_payments table.
+        // ================================================================
+        if (isset($_POST['submit_loan_collection'])) {
+            try {
+                $user_id = (int) $_POST['user_id'];
+                $loan_id = (int) $_POST['loan_id'];
+                $branch_id = (int) ($_POST['branch_id'] ?? 0);
+                $collected_amount = (float) str_replace(",", "", $_POST['collected_amount']);
+                $payment_date = $conn->real_escape_string(trim($_POST['payment_date']));
+                $member_name = trim($_POST['member_name'] ?? '');
+                $transaction_reference = trim($_POST['transaction_reference'] ?? '');
+                $account_used = (int) $_POST['account_used'];
+                $created_by = (int) $_SESSION['userid'];
+                $selected_schedules = json_decode($_POST['selected_schedules'] ?? '[]', true);
+
+                if (empty($selected_schedules) || !is_array($selected_schedules)) {
+                    throw new Exception("No installments selected.");
+                }
+                if ($collected_amount <= 0) {
+                    throw new Exception("Collected amount must be greater than zero.");
+                }
+                if ($account_used <= 0) {
+                    throw new Exception("Please select the account this payment was received into.");
+                }
+
+                // Process oldest-first (ascending schedule id ≈ earliest due date)
+                $selected_schedules = array_map('intval', $selected_schedules);
+                sort($selected_schedules);
+
+                $schedules_data = [];
+                $total_remaining = 0;
+                foreach ($selected_schedules as $schedule_id) {
+                    $schedule = selectLoanScheduleRowById($conn, $schedule_id);
+                    if (!$schedule || !is_array($schedule)) {
+                        throw new Exception("Installment #$schedule_id not found.");
+                    }
+                    if ((int) $schedule['loan_id'] !== $loan_id) {
+                        throw new Exception("Installment #$schedule_id does not belong to this loan.");
+                    }
+                    $principle = (float) $schedule['principle'];
+                    $interest = (float) $schedule['interest_amount'];
+                    $expected_amount = $principle + $interest;
+                    $paid_amount = (float) $schedule['paid_amount'];
+                    $remaining_amount = round($expected_amount - $paid_amount, 2);
+                    if ($remaining_amount <= 0) {
+                        throw new Exception("Installment #$schedule_id is already fully paid.");
+                    }
+                    $schedules_data[] = [
+                        'id' => $schedule_id,
+                        'expected_amount' => $expected_amount,
+                        'paid_amount' => $paid_amount,
+                        'remaining_amount' => $remaining_amount,
+                    ];
+                    $total_remaining += $remaining_amount;
+                }
+                $total_remaining = round($total_remaining, 2);
+                if ($collected_amount > $total_remaining + 0.01) {
+                    throw new Exception("Collected amount (" . number_format($collected_amount, 2) . ") exceeds the total remaining balance of the selected installments (" . number_format($total_remaining, 2) . ").");
+                }
+
+                $loanSub = selectMinSubByUserIDAndCategory($conn, $user_id, 'loan');
+                if (!$loanSub || !is_array($loanSub)) {
+                    throw new Exception("No loan account found for this member.");
+                }
+                $cr_account = (int) $loanSub['id'];
+
+                $conn->begin_transaction();
+
+                $description = trim(($member_name !== '' ? $member_name . " - " : "") . "Loan repayment" . ($transaction_reference !== '' ? " (Ref: $transaction_reference)" : ""));
+                $reference = "LRC/" . date("Y-m-d") . "/" . time();
+                $newTransaction = createMinTransaction($conn, $reference, $account_used, $description, $collected_amount, $cr_account, $payment_date, $created_by, $branch_id, "active");
+                if (!is_numeric($newTransaction) || $newTransaction <= 0) {
+                    throw new Exception("Failed to record the payment transaction: " . $newTransaction);
+                }
+
+                $remaining_to_distribute = $collected_amount;
+                foreach ($schedules_data as $sched_data) {
+                    if ($remaining_to_distribute <= 0) {
+                        break;
+                    }
+                    $amount_for_this_schedule = min($remaining_to_distribute, $sched_data['remaining_amount']);
+                    $new_paid_amount = round($sched_data['paid_amount'] + $amount_for_this_schedule, 2);
+                    $status = ($new_paid_amount >= $sched_data['expected_amount'] - 0.01) ? 'paid' : 'half-paid';
+                    $updateSchedule = updateLoanScheduleRowPayment($conn, $sched_data['id'], $new_paid_amount, $status);
+                    if ($updateSchedule !== true) {
+                        throw new Exception("Failed to update installment #{$sched_data['id']}: " . $updateSchedule);
+                    }
+                    $remaining_to_distribute -= $amount_for_this_schedule;
+                }
+
+                $conn->commit();
+
+                if (function_exists('createSystemNotification')) {
+                    createSystemNotification(
+                        $conn, $user_id,
+                        'Loan Repayment Received',
+                        "We received your loan repayment of TZS " . number_format($collected_amount, 2) . " on " . date('d/m/Y', strtotime($payment_date)) . ". Thank you.",
+                        'success',
+                        './?page=my_loan'
+                    );
+                }
+
+                setNotification('success', 'Payment of TZS ' . number_format($collected_amount, 2) . ' collected successfully for ' . count($selected_schedules) . ' installment(s).');
+                echo "<script>window.location.href='../?page=individual_loan_collection';</script>";
+            } catch (Exception $e) {
+                $conn->rollback();
+                echo "<script>alert(" . json_encode("Error: " . $e->getMessage()) . "); window.history.back();</script>";
+            }
+        }
+
     }
     
 ?>

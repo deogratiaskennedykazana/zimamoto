@@ -253,6 +253,88 @@
         return $row ? (int)$row['total'] : 0;
     }
 
+    // ================================================================
+    //  LOAN COLLECTION (individual repayment collection screen)
+    //  Ported/adapted from the equivalent "individual_loan_collection"
+    //  feature in the sister Kuringe system, but rewritten against
+    //  zimamoto's own schema (loans / loan_schedules / min_subs /
+    //  min_transactions) instead of Kuringe's (approved_loan /
+    //  loan_schedule / subsidiaries / transactions).
+    // ================================================================
+
+    // Members who currently have at least one approved loan — feeds the
+    // "Select Loan Customer" dropdown on the collection screen.
+    // Optionally restricted to one branch for branch-level accountants.
+    function selectUsersWithApprovedLoans(mysqli $conn, ?int $branchId = null){
+        if($conn === false){
+            exit();
+        }
+        $sql = "SELECT DISTINCT users.id AS user_id, users.name, users.phone, users.email
+                FROM loans
+                JOIN users ON users.id = loans.user_id
+                WHERE loans.status = 'approved' AND loans.deleted_at IS NULL
+                  AND users.deleted_at IS NULL";
+        if($branchId !== null){
+            $sql .= " AND loans.branch_id = ?";
+        }
+        $sql .= " ORDER BY users.name ASC";
+        $stmt = $conn->prepare($sql);
+        if($stmt === false){
+            return $conn->error;
+        }
+        if($branchId !== null){
+            $stmt->bind_param("i", $branchId);
+        }
+        return ($stmt->execute()) ? stmt_fetch_all($stmt) : $stmt->error;
+    }
+
+    // Single loan_schedules row, by its own id — needed when collecting
+    // a payment against one or more individually-selected installments.
+    function selectLoanScheduleRowById(mysqli $conn, int $scheduleId){
+        if($conn === false){
+            exit();
+        }
+        $sql = "SELECT * FROM `loan_schedules` WHERE id = ? AND deleted_at IS NULL";
+        $stmt = $conn->prepare($sql);
+        if($stmt === false){
+            return $conn->error;
+        }
+        $stmt->bind_param("i", $scheduleId);
+        return ($stmt->execute()) ? stmt_fetch_assoc($stmt) : $stmt->error;
+    }
+
+    // Records the result of a collection against one schedule row:
+    // new cumulative paid_amount + resulting status ('half-paid'/'paid').
+    function updateLoanScheduleRowPayment(mysqli $conn, int $scheduleId, float $paidAmount, string $status){
+        if($conn === false){
+            exit();
+        }
+        $sql = "UPDATE `loan_schedules` SET `paid_amount` = ?, `status` = ? WHERE id = ? AND deleted_at IS NULL";
+        $stmt = $conn->prepare($sql);
+        if($stmt === false){
+            return $conn->error;
+        }
+        $stmt->bind_param("dsi", $paidAmount, $status, $scheduleId);
+        return ($stmt->execute()) ? true : $stmt->error;
+    }
+
+    // Total amount already paid across a loan's schedule rows — used to
+    // show "Paid" / "Remaining" totals on the collection screen header.
+    function getTotalPaidForLoan(mysqli $conn, int $loanId){
+        if($conn === false){
+            exit();
+        }
+        $sql = "SELECT COALESCE(SUM(paid_amount),0) AS total_paid FROM loan_schedules WHERE loan_id = ? AND deleted_at IS NULL";
+        $stmt = $conn->prepare($sql);
+        if($stmt === false){
+            return 0.0;
+        }
+        $stmt->bind_param("i", $loanId);
+        $stmt->execute();
+        $row = stmt_fetch_assoc($stmt);
+        return $row ? (float)$row['total_paid'] : 0.0;
+    }
+
     function selectLoanByUserId(mysqli $conn, int $userId){
         $sql = "SELECT loans.*, loan_types.name FROM loans LEFT JOIN loan_types ON loans.loan_type = loan_types.id WHERE loans.user_id = ? AND loans.deleted_at IS NULL;";
         $stmt = $conn->prepare($sql);

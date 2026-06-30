@@ -657,6 +657,16 @@
                case"download_loan_form":
               include("./views/loan/download_loan_form.php");
               break;
+            case"review_attachments":
+              // FIX: this route was missing entirely, so the page=review_attachments
+              // link clicked from the loan processing screen fell through to the
+              // `default` case and silently rendered the dashboard instead of the
+              // attachment. Wiring it here actually shows/downloads the file.
+              include("./views/loan/review_attachments.php");
+              break;
+            case"individual_loan_collection":
+              include("./views/loan/individual_loan_collection.php");
+              break;
             // end of loan issue
             case "Add_masters";
                 include("./views/master/master_list.php");

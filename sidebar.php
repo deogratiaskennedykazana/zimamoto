@@ -161,6 +161,9 @@ $_canMeetings   = !$_isMember     || userHasPermission($conn, $_sUid, 'Meetings'
                 <a href="./?page=upload_loan" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Upload Loan</p></a>
               </li>
               <li class="nav-item<?= _sideHide(!$_canMembers) ?>">
+                <a href="./?page=individual_loan_collection" class="nav-link"><i class="far fa-circle nav-icon text-success"></i><p>Loan Collection</p></a>
+              </li>
+              <li class="nav-item<?= _sideHide(!$_canMembers) ?>">
                 <a href="./?page=upload_loan_repayments" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Upload Repayments</p></a>
               </li>
               <li class="nav-item<?= _sideHide(!$_canMembers) ?>">
